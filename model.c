@@ -27,11 +27,11 @@ void convection(double *temperature, double *pressure_layers, int nlayers) {
 
 	for (int i=0; i < nlayers; i++) {
 		pot_temperature[i] = TToTheta(temperature[i], pressure_layers[i]);
-		printf("layer %2d :: temperature %8.2fK :: potential temperature %8.2fK\n", i, temperature[i], pot_temperature[i]);
 	}
 	qsort(&pot_temperature, nlayers, sizeof(double), negCompare);
 	for (int i=0; i < nlayers; i++) {
 		temperature[i] = ThetaToT(pot_temperature[i], pressure_layers[i]);
+		printf("layer %2d :: temperature %8.2fK :: potential temperature %8.2fK\n", i, temperature[i], pot_temperature[i]);
 	}
 }
 
