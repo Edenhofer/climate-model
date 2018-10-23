@@ -3,7 +3,9 @@
 #include <stdlib.h>
 
 #define R_a 287
-#define c_p 1004.
+#define c_p 1004.  /* unit: hPa */
+#define g 9.82  /* m/s**2 */
+#define E_abs 235  /* unit: W/m**2 */
 
 int negCompare(const void *a, const void *b) {
 	if ((*(double*)b - *(double*)a) < 0)
@@ -35,14 +37,18 @@ void convection(double *temperature, double *pressure_layers, int nlayers) {
 	}
 }
 
-void heating(double *temperature) {
-
+void heating(double *temperature, double delta_t, double p0, int nlayers) {
+	double delta_p = p0/nlayers;
+	temperature[nlayers-1] += E_abs * delta_t * g / (delta_p * c_p);
 }
 
 int main() {
-	double p0 = 1000;  /* unit: hPa */
+	int niterations = 20;  /* Number of iterations to run the model */
 	int nlayers = 10;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
+	double delta_t = 5 * 60;  /* time difference between heating steps */
+
+	double p0 = 1000;  /* unit: hPa */
 	double pressure_layers[nlayers];
 	double pressure[nlevels];
 	double temperature[nlayers];  /* Kelvin */
@@ -57,9 +63,17 @@ int main() {
 		temperature[i] = 200. + 20. * (double) i;
 	}
 
-	convection(temperature, pressure_layers, nlayers);
+	printf("Beginning iterative climate modelling...\n");
+	int it = 0;
+	while (it < niterations) {
+		it++;
 
-	printf("Print sorted temperature array...\n");
+		printf("iteration %4d\n", it);
+		heating(temperature, delta_t, p0, nlayers);
+		convection(temperature, pressure_layers, nlayers);
+	}
+
+	printf("Print temperature array...\n");
 	for (int i=0; i < nlayers; i++) {
 		printf("layer %2d :: temperature %8.2fK\n", i, temperature[i]);
 	}
