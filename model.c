@@ -4,7 +4,12 @@
 
 #define R_a 287
 #define c_p 1004.  /* unit: hPa */
-#define g 9.82  /* m/s**2 */
+#define g 9.82  /* unit: m/s**2 */
+#define c 299792458  /* unit: m/s */
+#define T_universe 2.73  /* unit: K */
+#define h 6.62607004E-34  /* unit: m**2 * kg/s */
+#define k_B 1.38064852E-23  /* unit: m**2 * kg / (s**2 * K) */
+#define pi 3.14159265358979323846  /* unit: unitless*/
 #define E_abs 235  /* unit: W/m**2 */
 
 int negCompare(const void *a, const void *b) {
@@ -42,6 +47,10 @@ void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	temperature[nlayers-1] += E_abs * delta_t * g / (delta_p * c_p);
 }
 
+double PlanckB_int(double T) {
+	return 2 * pow(pi, 4) * pow(k_B, 4) / (15 * pow(h, 3) * pow(c, 2)) * pow(T, 4);
+}
+
 int main() {
 	int niterations = 20;  /* Number of iterations to run the model */
 	int nlayers = 10;  /* number of layers */
@@ -75,7 +84,7 @@ int main() {
 
 	printf("Print temperature array...\n");
 	for (int i=0; i < nlayers; i++) {
-		printf("layer %2d :: temperature %8.2fK\n", i, temperature[i]);
+		printf("layer %2d :: temperature %8.2fK :: B %8.2fWm-2sr-1\n", i, temperature[i], PlanckB_int(temperature[i]));
 	}
 
 	return 0;
