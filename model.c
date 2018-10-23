@@ -28,7 +28,7 @@ int main() {
 	int nlevels = nlayers + 1;  /* number of levels */
 	double pressure_layers[nlayers];
 	double pressure[nlevels];
-	double temperature[nlevels];  /* Kelvin */
+	double temperature[nlayers];  /* Kelvin */
 	double pot_temperature[nlevels];
 
 	printf("Initializing pressure array...\n");
