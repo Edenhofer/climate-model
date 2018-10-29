@@ -4,13 +4,15 @@
 
 #define R_a 287
 #define c_p 1004.  /* unit: hPa */
-#define g 9.82  /* unit: m/s**2 */
-#define c 299792458  /* unit: m/s */
-#define T_universe 2.73  /* unit: K */
+#define R_star 8.3144598  /* universal gas constant; unit: J/mol/K */
+#define g 9.80665  /* gravitational acceleration; unit: m/s**2 */
+#define c 299792458  /* speed of light; unit: m/s */
+#define T_universe 2.73  /* temperature of the universe; unit: K */
 #define h 6.62607004E-34  /* unit: m**2 * kg/s */
 #define k_B 1.38064852E-23  /* unit: m**2 * kg / (s**2 * K) */
 #define pi 3.14159265358979323846  /* unit: unitless*/
 #define E_abs 235  /* unit: W/m**2 */
+#define M_air 0.0289644  /* molar mass of Earth's air; unit: kg/mol */
 
 int negCompare(const void *a, const void *b) {
 	if ((*(double*)b - *(double*)a) < 0)
@@ -27,6 +29,10 @@ double TToTheta(double T, double p) {
 
 double ThetaToT(double Theta, double p) {
 	return Theta * pow(p/1000., R_a/c_p);
+}
+
+double barometric_PToZ(double p, double T_b, double p_b) {
+	return -1 * R_star * T_b / (M_air * g) * log(p / p_b);
 }
 
 void convection(double *temperature, double *pressure_layers, int nlayers) {
@@ -58,9 +64,10 @@ int main() {
 	double delta_t = 5 * 60;  /* time difference between heating steps */
 
 	double p0 = 1000;  /* unit: hPa */
-	double pressure_layers[nlayers];
 	double pressure[nlevels];
-	double temperature[nlayers];  /* Kelvin */
+	double z_levels[nlevels];  /* altitude; unit: m */
+	double pressure_layers[nlayers];
+	double temperature[nlayers];  /* unit: Kelvin */
 
 	printf("Initializing arrays...\n");
 	for (int i=0; i < nlevels; i++) {
@@ -80,11 +87,15 @@ int main() {
 		printf("iteration %4d\n", it);
 		heating(temperature, delta_t, p0, nlayers);
 		convection(temperature, pressure_layers, nlayers);
+
+		for (int i=0; i < nlevels; i++) {
+			z_levels[i] = barometric_PToZ(pressure[i], temperature[nlayers-1], p0);
+		}
 	}
 
 	printf("Print temperature array...\n");
 	for (int i=0; i < nlayers; i++) {
-		printf("layer %2d :: temperature %8.2fK :: B %8.2fWm-2sr-1\n", i, temperature[i], PlanckB_int(temperature[i]));
+		printf("layer %2d :: temperature %8.2fK :: altitude %8.2fm\n", i, temperature[i], z_levels[i+1]);
 	}
 
 	return 0;
