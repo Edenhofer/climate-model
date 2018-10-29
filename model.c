@@ -68,7 +68,7 @@ int main() {
 	int niterations = 20;  /* Number of iterations to run the model */
 	int nlayers = 10;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
-	double delta_t = 5 * 60;  /* time difference between heating steps */
+	double delta_t = 5;  /* time difference between heating steps */
 
 	double p0 = 1000;  /* unit: hPa */
 	double pressure[nlevels];
