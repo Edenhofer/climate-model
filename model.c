@@ -10,6 +10,7 @@
 #define T_universe 2.73  /* temperature of the universe; unit: K */
 #define h 6.62607004E-34  /* unit: m**2 * kg/s */
 #define k_B 1.38064852E-23  /* unit: m**2 * kg / (s**2 * K) */
+#define sigma_SB 5.670367E-8 /* Stefan-Boltzmann constant; unit: W m**-2 * K**-4 */
 #define pi 3.14159265358979323846  /* unit: unitless*/
 #define E_abs 235  /* unit: W/m**2 */
 #define M_air 0.0289644  /* molar mass of Earth's air; unit: kg/mol */
@@ -53,6 +54,12 @@ void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	temperature[nlayers-1] += E_abs * delta_t * g / (delta_p * c_p);
 }
 
+void cooling(double *temperature, double delta_t, double p0, int nlayers) {
+	double delta_p = p0/nlayers;
+	double emissivity = 1./3.;
+	temperature[nlayers-1] -= emissivity * sigma_SB * pow(temperature[nlayers-1], 4) * delta_t * g / (delta_p * c_p);
+}
+
 double PlanckB_int(double T) {
 	return 2 * pow(pi, 4) * pow(k_B, 4) / (15 * pow(h, 3) * pow(c, 2)) * pow(T, 4);
 }
@@ -86,6 +93,7 @@ int main() {
 
 		printf("iteration %4d\n", it);
 		heating(temperature, delta_t, p0, nlayers);
+		cooling(temperature, delta_t, p0, nlayers);
 		convection(temperature, pressure_layers, nlayers);
 
 		for (int i=0; i < nlevels; i++) {
