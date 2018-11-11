@@ -14,15 +14,15 @@ int negCompare(const void *a, const void *b) {
 }
 
 double TToTheta(double T, double p) {
-	return T * pow(1000./p, R_a/c_p);
+	return T * pow(1000./p, R_A/C_P);
 }
 
 double ThetaToT(double Theta, double p) {
-	return Theta * pow(p/1000., R_a/c_p);
+	return Theta * pow(p/1000., R_A/C_P);
 }
 
 double barometric_PToZ(double p, double T_b, double p_b) {
-	return -1 * R_star * T_b / (M_air * g) * log(p / p_b);
+	return -1 * R_STAR * T_b / (M_AIR * G) * log(p / p_b);
 }
 
 void convection(double *temperature, double *pressure_layers, int nlayers) {
@@ -40,17 +40,13 @@ void convection(double *temperature, double *pressure_layers, int nlayers) {
 
 void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
-	temperature[nlayers-1] += E_abs * delta_t * g / (delta_p * c_p);
+	temperature[nlayers-1] += E_ABS * delta_t * G / (delta_p * C_P);
 }
 
 void cooling(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
 	double emissivity = 1./3.;
-	temperature[nlayers-1] -= emissivity * sigma_SB * pow(temperature[nlayers-1], 4) * delta_t * g / (delta_p * c_p);
-}
-
-double PlanckB_int(double T) {
-	return 2 * pow(pi, 4) * pow(k_B, 4) / (15 * pow(h, 3) * pow(c, 2)) * pow(T, 4);
+	temperature[nlayers-1] -= emissivity * SIGMA_SB * pow(temperature[nlayers-1], 4) * delta_t * G / (delta_p * C_P);
 }
 
 int main() {
@@ -60,19 +56,20 @@ int main() {
 	double delta_t = 5;  /* time difference between heating steps */
 
 	double p0 = 1000;  /* unit: hPa */
-	double pressure[nlevels];
+	double pressure_levels[nlevels];
+	double temperature_levels[nlevels];  /* unit: Kelvin */
 	double z_levels[nlevels];  /* altitude; unit: m */
 	double pressure_layers[nlayers];
-	double temperature[nlayers];  /* unit: Kelvin */
+	double temperature_layers[nlayers];  /* unit: Kelvin */
 
 	printf("Initializing arrays...\n");
 	for (int i=0; i < nlevels; i++) {
-		pressure[i] = p0/nlayers * i;
-		printf("level %2d :: pressure %8.2fhPa\n", i, pressure[i]);
+		pressure_levels[i] = p0/nlayers * i;
+		printf("level %2d :: pressure %8.2fhPa\n", i, pressure_levels[i]);
 	}
 	for (int i=0; i < nlayers; i++) {
-		pressure_layers[i] = ( pressure[i] + pressure[i+1] ) / 2;
-		temperature[i] = 200. + 20. * (double) i;
+		pressure_layers[i] = ( pressure_levels[i] + pressure_levels[i+1] ) / 2;
+		temperature_layers[i] = 200. + 20. * (double) i;
 	}
 
 	printf("Beginning iterative climate modelling...\n");
@@ -81,18 +78,24 @@ int main() {
 		it++;
 
 		printf("iteration %4d\n", it);
-		heating(temperature, delta_t, p0, nlayers);
-		cooling(temperature, delta_t, p0, nlayers);
-		convection(temperature, pressure_layers, nlayers);
+		heating(temperature_layers, delta_t, p0, nlayers);
+		cooling(temperature_layers, delta_t, p0, nlayers);
+		convection(temperature_layers, pressure_layers, nlayers);
 
 		for (int i=0; i < nlevels; i++) {
-			z_levels[i] = barometric_PToZ(pressure[i], temperature[nlayers-1], p0);
+			z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
 		}
 	}
 
-	printf("Print temperature array...\n");
-	for (int i=0; i < nlayers; i++) {
-		printf("layer %2d :: temperature %8.2fK :: altitude %8.2fm\n", i, temperature[i], z_levels[i+1]);
+	temperature_levels[0] = T_UNIVERSE;
+	temperature_levels[nlevels-1] = temperature_layers[nlayers-1];
+	for (int i=1; i < nlayers; i++) {
+		temperature_levels[i] = (temperature_layers[i] + temperature_layers[i-1]) / 2.;
+	}
+
+	printf("Print resulting arrays...\n");
+	for (int i=0; i < nlevels; i++) {
+		printf("level %2d :: pressure %8.2f :: temperature %8.2fK :: altitude %8.2fm\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
 	}
 
 	return 0;
