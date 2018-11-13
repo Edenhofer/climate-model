@@ -1,2 +1,8 @@
 # Ignore output final model
 model
+
+# Disregard build directory
+builddir/
+
+# Ignore editor configuration
+.vscode/
