@@ -53,7 +53,7 @@ void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, dou
 
 	/* Atmospheric window: varying tau; e.g. for three windows
 	 * lambda < 1st val: tau varying between given bounds (vertically integrated)
-	 * 1st val < lambda < 2nd val: tau=0 (vertically integrated)
+	 * 1st val < lambda < 2nd val: tau varying between given bounds (vertically integrated)
 	 * 2nd val < lambda: tau varying between given bounds (vertically integrated)
 	 */
 	double dtau_layers[nlayers];
