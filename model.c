@@ -89,9 +89,10 @@ void cooling(double *temperature, double delta_t, double p0, int nlayers) {
 }
 
 int main() {
-	int niterations = 100000;  /* Number of iterations to run the model */
 	int nlayers = 20;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
+	double bound_delta_time = 12 * 60 * 60;  /* Bound on the timestep */
+	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
 
 	double p0 = 1000;  /* unit: hPa */
 	double albedo = 0.;
@@ -118,10 +119,14 @@ int main() {
 
 	printf("Beginning iterative climate modelling...\n");
 	int it = 0;
-	double max_T = 1.;
-	double max_delta_t = 12 * 60 * 60;
-	while (it < niterations) {
+	double model_t = 0.;
+	double bound_delta_temperature = 1.;
+	double temperature_sum_prev = 0.;
+	double temperature_sum_curr = temperature_sum_prev + delta_temperature_threshold + 1.;
+	while (fabs(temperature_sum_curr - temperature_sum_prev) > delta_temperature_threshold) {
 		it++;
+		temperature_sum_prev = temperature_sum_curr;
+		temperature_sum_curr = 0.;
 
 		double delta_p = p0/nlayers;
 
@@ -150,12 +155,17 @@ int main() {
 			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
 			max_E_net = max(fabs(delta_E_abs), max_E_net);
 		}
-		/* Convert between hPa and Pa by multiplying delta_p with 100 */
-		double delta_t = min(C_P/G * (100 * delta_p)/max_E_net * max_T, max_delta_t);
-		/* Actually adapt the temperature after having defined the time step */
+
+		/* Calculate an adaptive time difference and add it to the runtime.
+		 * In the calculation convert between hPa and Pa by multiplying delta_p with 100.
+		 */
+		double delta_t = min(C_P/G * (100 * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
+		model_t += delta_t;
+		/* Actually adapt the temperature after having defined the time step; also see previous loop */
 		for (int i=0; i < nlayers; i++) {
 			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
 			temperature_layers[i] += delta_E_abs * G / (100 * delta_p * C_P) * delta_t;
+			temperature_sum_curr += temperature_layers[i];
 		}
 	}
 
