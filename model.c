@@ -114,7 +114,7 @@ int main() {
 	}
 	for (int i=0; i < nlayers; i++) {
 		pressure_layers[i] = ( pressure_levels[i] + pressure_levels[i+1] ) / 2;
-		temperature_layers[i] = 200. + 20. * (double) i;
+		temperature_layers[i] = 288. - 100 * (1. - (double) i / nlayers);
 	}
 
 	printf("Beginning iterative climate modelling...\n");
