@@ -5,6 +5,11 @@
 #include "constants.h"
 #include "thermal_radiation.h"
 
+ #define max(a, b) \
+   ({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })
+#define min(a, b) \
+   ({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _a : _b; })
+
 int negCompare(const void *a, const void *b) {
 	if ((*(double*)b - *(double*)a) < 0)
 		return -1;
@@ -113,11 +118,11 @@ int main() {
 
 	printf("Beginning iterative climate modelling...\n");
 	int it = 0;
+	double max_T = 1.;
+	double max_delta_t = 12 * 60 * 60;
 	while (it < niterations) {
 		it++;
 
-		/* Not-yet adaptive time difference between heating steps */
-		double delta_t = 3600;
 		double delta_p = p0/nlayers;
 
 		//heating(temperature_layers, delta_t, p0, nlayers);
@@ -126,7 +131,7 @@ int main() {
 		convection(temperature_layers, pressure_layers, nlayers);
 
 		double lambda_bands[4] = {1E-20, 8E-6, 12E-6, 1E-03};
-		double dtau_windows[3] = {1., 0., 1.};
+		double dtau_windows[3] = {1.6, 0., 1.6};
 		band_flux(nlevels, 4, albedo, lambda_bands, dtau_windows, temperature_layers, total_Edn_levels, total_Eup_levels);
 
 		if (it%100 == 0) {
@@ -136,13 +141,20 @@ int main() {
 			}
 		}
 
+		double max_E_net = 1.;
 		/* Preemptively adapt the value of Eup at the surface to make the following loop work.
 		 * This is necessary as the surface does not transfer heat any lower. Furthermore, apply surface heating.
 		 */
 		total_Eup_levels[nlevels-1] = total_Edn_levels[nlevels-1] + E_ABS;
 		for (int i=0; i < nlayers; i++) {
 			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
-			/* Convert between hPa and Pa by multiplying delta_p with 100 */
+			max_E_net = max(fabs(delta_E_abs), max_E_net);
+		}
+		/* Convert between hPa and Pa by multiplying delta_p with 100 */
+		double delta_t = min(C_P/G * (100 * delta_p)/max_E_net * max_T, max_delta_t);
+		/* Actually adapt the temperature after having defined the time step */
+		for (int i=0; i < nlayers; i++) {
+			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
 			temperature_layers[i] += delta_E_abs * G / (100 * delta_p * C_P) * delta_t;
 		}
 	}
