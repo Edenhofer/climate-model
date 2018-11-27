@@ -4,11 +4,12 @@
 
 #include "constants.h"
 #include "thermal_radiation.h"
+#include "gnuplot_i.h"
 
- #define max(a, b) \
-   ({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })
+#define max(a, b) \
+	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })
 #define min(a, b) \
-   ({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _a : _b; })
+	({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _a : _b; })
 
 int negCompare(const void *a, const void *b) {
 	if ((*(double*)b - *(double*)a) < 0)
@@ -108,14 +109,18 @@ int main() {
 	double total_Edn_levels[nlevels];
 
 	printf("Initializing arrays...\n");
+	printf("Level Pressure[hPa]\n");
 	for (int i=0; i < nlevels; i++) {
 		pressure_levels[i] = p0/nlayers * i;
-		printf("level %2d :: pressure %8.2fhPa\n", i, pressure_levels[i]);
+		printf("%3d %12.4f\n", i, pressure_levels[i]);
 	}
 	for (int i=0; i < nlayers; i++) {
 		pressure_layers[i] = ( pressure_levels[i] + pressure_levels[i+1] ) / 2;
 		temperature_layers[i] = 288. - 100 * (1. - (double) i / nlayers);
 	}
+
+	gnuplot_ctrl *g1;
+	g1 = gnuplot_init();
 
 	printf("Beginning iterative climate modelling...\n");
 	int it = 0;
@@ -140,10 +145,26 @@ int main() {
 		band_flux(nlevels, 4, albedo, lambda_bands, dtau_windows, temperature_layers, total_Edn_levels, total_Eup_levels);
 
 		if (it%100 == 0) {
-			printf("iteration %4d\n", it);
+			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
+			printf("total_Edn_levels[W] total_Eup_levels[W] temperature_layers[K]\n");
 			for (int i=0; i < nlevels; i++) {
-				printf("total_Edn_levels: %6.4f, total_Eup_levels: %6.4f, temperature_layers: %6.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
+				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
 			}
+
+			for (int i=0; i < nlevels; i++) {
+				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
+			}
+			for (int i=0; i < nlayers; i++) {
+				z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
+			}
+
+			gnuplot_resetplot(g1);  /* Start with new plot rather than plotting into existing one */
+			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
+			gnuplot_set_xlabel(g1, "temperature [K]");  /* x-axis label */
+			gnuplot_set_ylabel(g1, "altitude [m]");  /* y-axis label */
+
+			/* Plot temperature T as function of z and label with temperature */
+			gnuplot_plot_xy(g1, temperature_layers, z_layers, nlayers, "Temperature") ;
 		}
 
 		double max_E_net = 1.;
@@ -169,6 +190,13 @@ int main() {
 		}
 	}
 
+	/* Close plot after receiving an input */
+	printf("Iterations completed. Terminate by closing the standard input... ");
+	char tmp;
+	scanf(&tmp);
+	gnuplot_close(g1);
+	printf("\n");
+
 	temperature_levels[0] = T_UNIVERSE;
 	temperature_levels[nlevels-1] = temperature_layers[nlayers-1];
 	for (int i=1; i < nlayers; i++) {
@@ -182,12 +210,14 @@ int main() {
 	}
 
 	printf("Modelled results by levels...\n");
+	printf("Level Pressure[hPa] Temperature[K] Altitude[m]\n");
 	for (int i=0; i < nlevels; i++) {
-		printf("level %2d :: pressure %8.2f :: temperature %8.2fK :: altitude %8.2fm\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
+		printf("%3d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
 	}
 	printf("Modelled results by layers...\n");
+	printf("Layer Pressure[hPa] Temperature[K] Altitude[m]\n");
 	for (int i=0; i < nlayers; i++) {
-		printf("layer %2d :: pressure %8.2f :: temperature %8.2fK :: altitude %8.2fm\n", i, pressure_layers[i], temperature_layers[i], z_layers[i]);
+		printf("%3d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], temperature_layers[i], z_layers[i]);
 	}
 
 	return 0;
