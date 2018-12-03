@@ -4,7 +4,9 @@
 
 #include "constants.h"
 #include "thermal_radiation.h"
+#include "ascii.h"
 #include "gnuplot_i.h"
+#include "fpda_rrtm_lw.h"
 
 #define max(a, b) \
 	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })
@@ -78,6 +80,40 @@ void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, dou
 	}
 }
 
+void rrtm_flux(int nlayers, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double albedo, double *total_Edn_levels, double *total_Eup_levels) {
+	int nbands;
+	double *band_lbound_bands;
+	double *band_ubound_bands;
+	double **dtau_mol_lw_bandslayers;
+	double **wgt_lw_bandslayers;
+
+	cfpda_rrtm_lw(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, &nbands, &band_lbound_bands, &band_ubound_bands, &wgt_lw_bandslayers, &dtau_mol_lw_bandslayers);
+
+	int nlevels = nlayers+1;
+	double Eup_levels[nlevels];
+	double Edn_levels[nlevels];
+	double B_layers[nlayers];  /* unit: W * s / (m**2 * r) */
+
+	/* Reset energy fluxes */
+	for (int i=0; i < nlevels; i++) {
+		total_Eup_levels[i] = 0;
+		total_Edn_levels[i] = 0;
+	}
+
+	for (int ib=0; ib < nbands; ib++) {
+		for (int i=0; i < nlayers; i++) {
+			B_layers[i] = wgt_lw_bandslayers[ib][i] * planck_int(1e-2/band_ubound_bands[ib], 1e-2/band_lbound_bands[ib], temperature_layers[i]);
+		}
+
+		double B_surface = B_layers[nlayers-1];
+		schwarzschild(nlevels, albedo, dtau_mol_lw_bandslayers[ib], B_layers, B_surface, Edn_levels, Eup_levels);
+		for (int i=0; i < nlevels; i++) {
+			total_Eup_levels[i] += Eup_levels[i];
+			total_Edn_levels[i] += Edn_levels[i];
+		}
+	}
+}
+
 void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
 	temperature[nlayers-1] += E_ABS * delta_t * G / (delta_p * C_P);
@@ -107,6 +143,7 @@ int main() {
 	double z_levels[nlevels];  /* altitude; unit: m */
 	double total_Eup_levels[nlevels];
 	double total_Edn_levels[nlevels];
+	double h2ovmr[nlayers], o3vmr[nlayers], co2vmr[nlayers], ch4vmr[nlayers], n2ovmr[nlayers], o2vmr[nlayers], cfc11vmr[nlayers], cfc12vmr[nlayers], cfc22vmr[nlayers], ccl4vmr[nlayers];
 
 	printf("Initializing arrays...\n");
 	printf("Level Pressure[hPa]\n");
@@ -114,9 +151,39 @@ int main() {
 		pressure_levels[i] = p0/nlayers * i;
 		printf("%3d %12.4f\n", i, pressure_levels[i]);
 	}
+
+	int nlevels_fpda_file;
+	double *h2oppm=NULL, *o3ppm=NULL, *discard1=NULL, *discard2=NULL, *discard3=NULL;
+	char fpda_filepath[128] = "ascii/fpda.atm";
+	int status;
+	status = read_5c_file(fpda_filepath, &discard1, &discard2, &discard3, &h2oppm, &o3ppm, &nlevels_fpda_file);
+	if (status != 0) {
+		fprintf(stderr, "Error while opening file '%s'. Aborting...\n", fpda_filepath);
+		return 1;
+	}
+	if (nlevels != nlevels_fpda_file) {
+		fprintf(stderr, "Reading in H2O and O3 concentrations only works for %3d levels! Aborting...\n", nlevels);
+		return 1;
+	}
 	for (int i=0; i < nlayers; i++) {
-		pressure_layers[i] = ( pressure_levels[i] + pressure_levels[i+1] ) / 2;
-		temperature_layers[i] = 288. - 100 * (1. - (double) i / nlayers);
+		h2ovmr[i] = (h2oppm[i] + h2oppm[i+1]) / 2. * 1e-6;
+		o3vmr[i] = (o3ppm[i] + o3ppm[i+1]) / 2. * 1e-6;
+	}
+
+	printf("Layer Temperature[K] H2O O3 CO2 CH4 N2O O2\n");
+	for (int i=0; i < nlayers; i++) {
+		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
+		temperature_layers[i] = 288. - ((double) nlayers - (double) i - 1.) * 50./((double) nlayers - 1.);
+		co2vmr[i] = 400e-6;
+		ch4vmr[i] = 1.7e-6;
+		n2ovmr[i] = 320e-9;
+		o2vmr[i] = .209;
+		cfc11vmr[i] = 0.;
+		cfc12vmr[i] = 0.;
+		cfc22vmr[i] = 0.;
+		ccl4vmr[i] = 0.;
+
+		printf("%3i %7g %7g %7g %7g %7g %7g %7g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
 	}
 
 	gnuplot_ctrl *g1;
@@ -140,9 +207,15 @@ int main() {
 
 		convection(temperature_layers, pressure_layers, nlayers);
 
-		double lambda_bands[4] = {1E-20, 8E-6, 12E-6, 1E-03};
-		double dtau_windows[3] = {1.6, 0., 1.6};
-		band_flux(nlevels, 4, albedo, lambda_bands, dtau_windows, temperature_layers, total_Edn_levels, total_Eup_levels);
+		/* Compute the flux using fixed bands
+		 * ```
+		 * double lambda_bands[4] = {1E-20, 8E-6, 12E-6, 1E-03};
+		 * double dtau_windows[3] = {1.6, 0., 1.6};
+		 * band_flux(nlevels, 4, albedo, lambda_bands, dtau_windows, temperature_layers, total_Edn_levels, total_Eup_levels);
+		 * ```
+		 */
+
+		rrtm_flux(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, albedo, total_Edn_levels, total_Eup_levels);
 
 		if (it%100 == 0) {
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
