@@ -220,9 +220,10 @@ int main() {
 		if (it%100 == 0) {
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
 			printf("total_Edn_levels[W] total_Eup_levels[W] temperature_layers[K]\n");
-			for (int i=0; i < nlevels; i++) {
+			for (int i=0; i < nlayers; i++) {
 				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
 			}
+			printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN);
 
 			for (int i=0; i < nlevels; i++) {
 				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
