@@ -217,30 +217,6 @@ int main() {
 
 		rrtm_flux(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, albedo, total_Edn_levels, total_Eup_levels);
 
-		if (it%100 == 0) {
-			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
-			printf("total_Edn_levels[W] total_Eup_levels[W] temperature_layers[K]\n");
-			for (int i=0; i < nlayers; i++) {
-				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
-			}
-			printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN);
-
-			for (int i=0; i < nlevels; i++) {
-				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
-			}
-			for (int i=0; i < nlayers; i++) {
-				z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
-			}
-
-			gnuplot_resetplot(g1);  /* Start with new plot rather than plotting into existing one */
-			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
-			gnuplot_set_xlabel(g1, "temperature [K]");  /* x-axis label */
-			gnuplot_set_ylabel(g1, "altitude [m]");  /* y-axis label */
-
-			/* Plot temperature T as function of z and label with temperature */
-			gnuplot_plot_xy(g1, temperature_layers, z_layers, nlayers, "Temperature") ;
-		}
-
 		double max_E_net = 1.;
 		/* Preemptively adapt the value of Eup at the surface to make the following loop work.
 		 * This is necessary as the surface does not transfer heat any lower. Furthermore, apply surface heating.
@@ -262,6 +238,30 @@ int main() {
 			temperature_layers[i] += delta_E_abs * G / (100 * delta_p * C_P) * delta_t;
 			temperature_sum_curr += temperature_layers[i];
 		}
+
+		if (it%100 == 0) {
+			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
+			printf("total_Edn_levels[W] total_Eup_levels[W] temperature_layers[K]\n");
+			for (int i=0; i < nlayers; i++) {
+				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
+			}
+			printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN);
+
+			for (int i=0; i < nlevels; i++) {
+				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
+			}
+			for (int i=0; i < nlayers; i++) {
+				z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
+			}
+
+			gnuplot_resetplot(g1);  /* Start with a new plot rather than plotting into existing one */
+			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
+			gnuplot_set_xlabel(g1, "temperature [K]");  /* x-axis label */
+			gnuplot_set_ylabel(g1, "altitude [m]");  /* y-axis label */
+
+			/* Plot temperature T as function of z and label with temperature */
+			gnuplot_plot_xy(g1, temperature_layers, z_layers, nlayers, "Temperature") ;
+		}
 	}
 
 	/* Close plot after receiving an input */
@@ -275,12 +275,6 @@ int main() {
 	temperature_levels[nlevels-1] = temperature_layers[nlayers-1];
 	for (int i=1; i < nlayers; i++) {
 		temperature_levels[i] = (temperature_layers[i] + temperature_layers[i-1]) / 2.;
-	}
-	for (int i=0; i < nlevels; i++) {
-		z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
-	}
-	for (int i=0; i < nlayers; i++) {
-		z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
 	}
 
 	printf("Modelled results by levels...\n");
