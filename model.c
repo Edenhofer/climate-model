@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_interp.h>
 
 #include "constants.h"
 #include "thermal_radiation.h"
@@ -32,6 +34,24 @@ double ThetaToT(double Theta, double p) {
 
 double barometric_PToZ(double p, double T_b, double p_b) {
 	return -1 * R_STAR * T_b / (M_AIR * G) * log(p / p_b);
+}
+
+void concentration_interpolation(double *x_lines, double *y_lines, int nlines, double *x_layers, double *y_layers, int nlayers) {
+	/* Interpolate concentrations at given values for arbitrary layers and convert from ppm to vmr */
+	gsl_interp *workspace;
+	gsl_interp_accel *accel;
+
+	workspace = gsl_interp_alloc(gsl_interp_linear, nlines);
+	accel = gsl_interp_accel_alloc();
+
+	gsl_interp_init(workspace, x_lines, y_lines, nlines);
+	for (int i=0; i < nlayers; i++) {
+		/* Interpolate between points and multiply with 1e-6 as to translate ppm to vmr */
+		y_layers[i] = gsl_interp_eval(workspace, x_lines, y_lines, x_layers[i], accel) * 1e-6;
+	}
+
+	gsl_interp_accel_free(accel);
+	gsl_interp_free(workspace);
 }
 
 void convection(double *temperature, double *pressure_layers, int nlayers) {
@@ -126,7 +146,7 @@ void cooling(double *temperature, double delta_t, double p0, int nlayers) {
 }
 
 int main() {
-	int nlayers = 20;  /* number of layers */
+	int nlayers = 22;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
 	double bound_delta_time = 12 * 60 * 60;  /* Bound on the timestep */
 	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
@@ -151,6 +171,10 @@ int main() {
 		pressure_levels[i] = p0/nlayers * i;
 		printf("%3d %12.4f\n", i, pressure_levels[i]);
 	}
+	for (int i=0; i < nlayers; i++) {
+		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
+		temperature_layers[i] = 288. - ((double) nlayers - (double) i - 1.) * 50./((double) nlayers - 1.);
+	}
 
 	int nlevels_fpda_file;
 	double *h2oppm=NULL, *o3ppm=NULL, *discard1=NULL, *discard2=NULL, *discard3=NULL;
@@ -161,19 +185,16 @@ int main() {
 		fprintf(stderr, "Error while opening file '%s'. Aborting...\n", fpda_filepath);
 		return 1;
 	}
-	if (nlevels != nlevels_fpda_file) {
-		fprintf(stderr, "Reading in H2O and O3 concentrations only works for %3d levels! Aborting...\n", nlevels);
-		return 1;
+	/* Interpolate concentrations for arbitrary layers */
+	double pressure_given[nlevels_fpda_file];
+	for (int i=0; i < nlevels_fpda_file; i++) {
+		pressure_given[i] = p0/(nlevels_fpda_file - 1) * i;
 	}
-	for (int i=0; i < nlayers; i++) {
-		h2ovmr[i] = (h2oppm[i] + h2oppm[i+1]) / 2. * 1e-6;
-		o3vmr[i] = (o3ppm[i] + o3ppm[i+1]) / 2. * 1e-6;
-	}
+	concentration_interpolation(pressure_given, h2oppm, nlevels_fpda_file, pressure_layers, h2ovmr, nlayers);
+	concentration_interpolation(pressure_given, o3ppm, nlevels_fpda_file, pressure_layers, o3vmr, nlayers);
 
 	printf("Layer Temperature[K] H2O O3 CO2 CH4 N2O O2\n");
 	for (int i=0; i < nlayers; i++) {
-		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
-		temperature_layers[i] = 288. - ((double) nlayers - (double) i - 1.) * 50./((double) nlayers - 1.);
 		co2vmr[i] = 400e-6;
 		ch4vmr[i] = 1.7e-6;
 		n2ovmr[i] = 320e-9;
