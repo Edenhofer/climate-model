@@ -166,10 +166,10 @@ int main() {
 	double h2ovmr[nlayers], o3vmr[nlayers], co2vmr[nlayers], ch4vmr[nlayers], n2ovmr[nlayers], o2vmr[nlayers], cfc11vmr[nlayers], cfc12vmr[nlayers], cfc22vmr[nlayers], ccl4vmr[nlayers];
 
 	printf("Initializing arrays...\n");
-	printf("Level Pressure[hPa]\n");
+	printf("%5s %12s\n", "Level", "p[hPa]");
 	for (int i=0; i < nlevels; i++) {
 		pressure_levels[i] = p0/nlayers * i;
-		printf("%3d %12.4f\n", i, pressure_levels[i]);
+		printf("%5d %12.4f\n", i, pressure_levels[i]);
 	}
 	for (int i=0; i < nlayers; i++) {
 		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
@@ -193,7 +193,7 @@ int main() {
 	concentration_interpolation(pressure_given, h2oppm, nlevels_fpda_file, pressure_layers, h2ovmr, nlayers);
 	concentration_interpolation(pressure_given, o3ppm, nlevels_fpda_file, pressure_layers, o3vmr, nlayers);
 
-	printf("Layer Temperature[K] H2O O3 CO2 CH4 N2O O2\n");
+	printf("%5s %12s %12s %12s %12s %12s %12s %12s\n", "Layer", "T[K]", "H2O", "O3", "CO2", "CH4", "N2O", "O2");
 	for (int i=0; i < nlayers; i++) {
 		co2vmr[i] = 400e-6;
 		ch4vmr[i] = 1.7e-6;
@@ -204,7 +204,7 @@ int main() {
 		cfc22vmr[i] = 0.;
 		ccl4vmr[i] = 0.;
 
-		printf("%3i %7g %7g %7g %7g %7g %7g %7g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
+		printf("%5i %12g %12g %12g %12g %12g %12g %12g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
 	}
 
 	gnuplot_ctrl *g1;
@@ -262,7 +262,7 @@ int main() {
 
 		if (it%100 == 0) {
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
-			printf("total_Edn_levels[W] total_Eup_levels[W] temperature_layers[K]\n");
+			printf("%12s %12s %12s\n", "Edn_lvl[W]", "Eup_lvl[W]", "T_lyr[K]");
 			for (int i=0; i < nlayers; i++) {
 				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
 			}
@@ -299,14 +299,14 @@ int main() {
 	}
 
 	printf("Modelled results by levels...\n");
-	printf("Level Pressure[hPa] Temperature[K] Altitude[m]\n");
+	printf("%5s %12s %12s %12s\n", "Level", "p[hPa]", "T[K]", "z[m]");
 	for (int i=0; i < nlevels; i++) {
-		printf("%3d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
+		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
 	}
 	printf("Modelled results by layers...\n");
-	printf("Layer Pressure[hPa] Temperature[K] Altitude[m]\n");
+	printf("%5s %12s %12s %12s\n", "Layer", "p[hPa]", "T[K]", "z[m]");
 	for (int i=0; i < nlayers; i++) {
-		printf("%3d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], temperature_layers[i], z_layers[i]);
+		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], temperature_layers[i], z_layers[i]);
 	}
 
 	return 0;
