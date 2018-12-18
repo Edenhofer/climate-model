@@ -100,7 +100,7 @@ void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, dou
 	}
 }
 
-void rrtm_flux(int nlayers, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double albedo, double *total_Edn_levels, double *total_Eup_levels) {
+void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double *total_Edn_levels, double *total_Eup_levels) {
 	int nbands;
 	double *band_lbound_bands;
 	double *band_ubound_bands;
@@ -236,7 +236,7 @@ int main() {
 		 * ```
 		 */
 
-		rrtm_flux(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, albedo, total_Edn_levels, total_Eup_levels);
+		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, total_Edn_levels, total_Eup_levels);
 
 		double max_E_net = 1.;
 		/* Preemptively adapt the value of Eup at the surface to make the following loop work.
