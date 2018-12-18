@@ -7,6 +7,17 @@ builddir/
 # Ignore editor configuration
 .vscode/
 
+# Ingore externals
+# gnuplot_i files
+gnuplot_i/
+!gnuplot_i/src/gnuplot_i.c
+!gnuplot_i/src/gnuplot_i.h
+# ascii files
+ascii/
+!ascii/fpda.atm
+!ascii/ascii.c
+!ascii/ascii.h
+
 # Ignore temporary table used for plotting results
 opacity-analysis.csv
 
