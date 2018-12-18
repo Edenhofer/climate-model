@@ -311,19 +311,19 @@ int main() {
 		}
 
 		if (it%100 == 0) {
-			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
-			printf("%12s %12s %12s\n", "Edn_lvl[W]", "Eup_lvl[W]", "T_lyr[K]");
-			for (int i=0; i < nlayers; i++) {
-				printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], temperature_layers[i]);
-			}
-			printf("%12.4f %12.4f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN);
-
 			for (int i=0; i < nlevels; i++) {
 				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
 			}
 			for (int i=0; i < nlayers; i++) {
 				z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
 			}
+
+			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
+			printf("%12s %12s %12s %12s\n", "Edn_lvl[W]", "Eup_lvl[W]", "z[m]", "T_lyr[K]");
+			for (int i=0; i < nlayers; i++) {
+				printf("%12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], z_layers[i], temperature_layers[i]);
+			}
+			printf("%12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN, (double) NAN);
 
 			gnuplot_resetplot(g1);  /* Start with a new plot rather than plotting into existing one */
 			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
