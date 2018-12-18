@@ -6,3 +6,12 @@ builddir/
 
 # Ignore editor configuration
 .vscode/
+
+# Ignore temporary table used for plotting results
+opacity-analysis.csv
+
+# Ignore graphics and visualizations
+*.pdf
+*.svg
+*.png
+*.jpg
