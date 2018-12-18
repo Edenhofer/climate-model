@@ -8,6 +8,7 @@
 #include "thermal_radiation.h"
 #include "ascii.h"
 #include "gnuplot_i.h"
+#include "fpda_rrtm_sw.h"
 #include "fpda_rrtm_lw.h"
 
 #define max(a, b) \
@@ -134,6 +135,47 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 	}
 }
 
+void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *total_E_direct_levels, double *total_Edn_levels, double *total_Eup_levels) {
+	int nbands;
+	int nlevels = nlayers+1;
+	double *band_lbound_bands;
+	double *band_ubound_bands;
+	double *wgt_sw_bandslayers;
+	double **dtau_mol_sw_bandslayers;
+	double **dtau_ray_sw_bandslayers;
+
+	cfpda_rrtm_sw(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, &nbands, &band_lbound_bands, &band_ubound_bands, &wgt_sw_bandslayers, &dtau_mol_sw_bandslayers, &dtau_ray_sw_bandslayers);
+
+	/* Reset energy fluxes */
+	for (int i=0; i < nlevels; i++) {
+		total_E_direct_levels[i] = 0;
+		total_Eup_levels[i] = 0;
+		total_Edn_levels[i] = 0;
+	}
+
+	for (int ib=0; ib < nbands; ib++) {
+		double dtau_layers[nlayers];
+		double g_layers[nlayers];
+		double omega0_layers[nlayers];
+		double E_direct_levels[nlevels], Eup_levels[nlevels], Edn_levels[nlevels];
+
+		for (int i=0; i < nlayers; i++) {
+			/* Direct radiation is subject to extinction due to gas absorption and rayleigh scattering */
+			dtau_layers[i] = dtau_mol_sw_bandslayers[ib][i] + dtau_ray_sw_bandslayers[ib][i];
+			//g[i] = dtau_ray_sw_bandslayers[ib][i] * 0. + k_scatter_cloud * g_cloud;
+			g_layers[i] = 0.;
+			omega0_layers[i] = dtau_ray_sw_bandslayers[ib][i] / dtau_layers[i];
+		}
+
+		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_layers, omega0_layers, dtau_layers, E_direct_levels, Edn_levels, Eup_levels);
+		for (int i=0; i < nlevels; i++) {
+			total_E_direct_levels[i] += E_direct_levels[i];
+			total_Eup_levels[i] += Eup_levels[i];
+			total_Edn_levels[i] += Edn_levels[i];
+		}
+	}
+}
+
 void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
 	temperature[nlayers-1] += E_ABS * delta_t * G / (delta_p * C_P);
@@ -152,7 +194,9 @@ int main() {
 	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
 
 	double p0 = 1000;  /* unit: hPa */
-	double albedo = 0.;
+
+	double A_g = 0.12;  // Albedo at the ground
+	double mu0 = 0.25;  // Integrate the day-night cycle via a clever parametrization
 
 	double pressure_layers[nlayers];
 	double temperature_layers[nlayers];  /* unit: Kelvin */
@@ -161,8 +205,6 @@ int main() {
 	double pressure_levels[nlevels];
 	double temperature_levels[nlevels];  /* unit: Kelvin */
 	double z_levels[nlevels];  /* altitude; unit: m */
-	double total_Eup_levels[nlevels];
-	double total_Edn_levels[nlevels];
 	double h2ovmr[nlayers], o3vmr[nlayers], co2vmr[nlayers], ch4vmr[nlayers], n2ovmr[nlayers], o2vmr[nlayers], cfc11vmr[nlayers], cfc12vmr[nlayers], cfc22vmr[nlayers], ccl4vmr[nlayers];
 
 	printf("Initializing arrays...\n");
@@ -236,7 +278,15 @@ int main() {
 		 * ```
 		 */
 
+		double total_Eup_levels[nlevels], total_Edn_levels[nlevels];
+		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
+
 		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, total_Edn_levels, total_Eup_levels);
+		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
+		for (int i=0; i < nlevels; i++) {
+			total_Eup_levels[i] += total_Eup_sw_levels[i];
+			total_Edn_levels[i] += total_Edn_sw_levels[i];
+		}
 
 		double max_E_net = 1.;
 		/* Preemptively adapt the value of Eup at the surface to make the following loop work.
