@@ -378,7 +378,7 @@ int main() {
 			temperature_sum_curr += temperature_layers[i];
 		}
 
-		if (it%100 == 0) {
+		if (it%5 == 0) {
 			for (int i=0; i < nlevels; i++) {
 				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
 			}
@@ -387,11 +387,11 @@ int main() {
 			}
 
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
-			printf("%12s %12s %12s %12s\n", "Edn_lvl[W]", "Eup_lvl[W]", "z[m]", "T_lyr[K]");
+			printf("%12s %12s %12s %12s %12s %12s %12s\n", "Edn[W]", "Eup[W]", "E_dir[W]", "Edn_sw[W]", "Eup_sw[W]", "z_lyr[m]", "T_lyr[K]");
 			for (int i=0; i < nlayers; i++) {
-				printf("%12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], z_layers[i], temperature_layers[i]);
+				printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], total_E_direct_levels[i], total_Edn_sw_levels[i], total_Eup_sw_levels[i], z_layers[i], temperature_layers[i]);
 			}
-			printf("%12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], (double) NAN, (double) NAN);
+			printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], total_E_direct_levels[nlevels-1], total_Edn_sw_levels[nlevels-1], total_Eup_sw_levels[nlevels-1], (double) NAN, (double) NAN);
 
 			gnuplot_resetplot(g1);  /* Start with a new plot rather than plotting into existing one */
 			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
@@ -417,14 +417,14 @@ int main() {
 	}
 
 	printf("Modelled results by levels...\n");
-	printf("%5s %12s %12s %12s\n", "Level", "p[hPa]", "T[K]", "z[m]");
+	printf("%5s %12s %12s %12s\n", "Level", "p[hPa]", "z[m]", "T[K]");
 	for (int i=0; i < nlevels; i++) {
-		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], temperature_levels[i], z_levels[i]);
+		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], z_levels[i], temperature_levels[i]);
 	}
 	printf("Modelled results by layers...\n");
-	printf("%5s %12s %12s %12s\n", "Layer", "p[hPa]", "T[K]", "z[m]");
+	printf("%5s %12s %12s %12s\n", "Layer", "p[hPa]", "z[m]", "T[K]");
 	for (int i=0; i < nlayers; i++) {
-		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], temperature_layers[i], z_layers[i]);
+		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], z_layers[i], temperature_layers[i]);
 	}
 
 	return 0;
