@@ -237,6 +237,7 @@ int main() {
 	int nlayers = 22;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
 	double bound_delta_time = 12 * 60 * 60;  /* Bound on the timestep */
+	int n_temperature_ter = 5;  /* Number of times the temperature has to be within the threshold */
 	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
 
 	double p0 = 1000;  /* unit: hPa */
@@ -324,10 +325,16 @@ int main() {
 	int it = 0;
 	double model_t = 0.;
 	double bound_delta_temperature = 1.;
+	int n_temperature = 0;
 	double temperature_sum_prev = 0.;
 	double temperature_sum_curr = temperature_sum_prev + delta_temperature_threshold + 1.;
-	while (fabs(temperature_sum_curr - temperature_sum_prev) > delta_temperature_threshold) {
+	while (n_temperature < n_temperature_ter) {
 		it++;
+		if (fabs(temperature_sum_curr - temperature_sum_prev) < delta_temperature_threshold) {
+			n_temperature++;
+		} else {
+			n_temperature = 0;
+		}
 		temperature_sum_prev = temperature_sum_curr;
 		temperature_sum_curr = 0.;
 
