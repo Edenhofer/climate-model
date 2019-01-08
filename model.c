@@ -107,7 +107,7 @@ void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, dou
 	}
 }
 
-void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double *total_Edn_levels, double *total_Eup_levels) {
+void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double *liquid_water_path_layers, double r_cloud, double *wvl_lbound_bands, double *wvl_ubound_bands, double *q_ext_cloud_bands, double *omega0_cloud_bands, int nlevels_cloud_prop_file, double *total_Edn_levels, double *total_Eup_levels) {
 	int nbands;
 	double *band_lbound_bands;
 	double *band_ubound_bands;
@@ -115,6 +115,18 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 	double **wgt_lw_bandslayers;
 
 	cfpda_rrtm_lw(nlayers, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, &nbands, &band_lbound_bands, &band_ubound_bands, &wgt_lw_bandslayers, &dtau_mol_lw_bandslayers);
+
+	/* Check the output of the RRTM for consistency with the provided cloud property file */
+	if (nlevels_cloud_prop_file != nbands) {
+		fprintf(stderr, "Number of long wavelength bands returned by the RRTM differs from the one from the input file. Aborting...\n");
+		exit(1);
+	}
+	for (int ib=0; ib < nbands; ib++) {
+		if (areSame(band_lbound_bands[ib], wvl_lbound_bands[ib]) || areSame(band_ubound_bands[ib], wvl_ubound_bands[ib])) {
+			fprintf(stderr, "Long wavelength bands returned by the RRTM differ from the ones from the input file. Aborting...\n");
+			exit(1);
+		}
+	}
 
 	int nlevels = nlayers+1;
 	double Eup_levels[nlevels];
@@ -128,12 +140,20 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 	}
 
 	for (int ib=0; ib < nbands; ib++) {
+		double dtau_layers[nlayers];
+
 		for (int i=0; i < nlayers; i++) {
 			B_layers[i] = wgt_lw_bandslayers[ib][i] * planck_int(1e-2/band_ubound_bands[ib], 1e-2/band_lbound_bands[ib], temperature_layers[i]);
 		}
 
+		for (int i=0; i < nlayers; i++) {
+			/* Direct radiation is subject to extinction due to gas absorption and clouds (no scattering) */
+			double dtau_ext_cloud = 3 * liquid_water_path_layers[i] * q_ext_cloud_bands[ib] / (4 * r_cloud * RHO_LIQUID);
+			dtau_layers[i] = dtau_mol_lw_bandslayers[ib][i] + dtau_ext_cloud * omega0_cloud_bands[ib];
+		}
+
 		double B_surface = B_layers[nlayers-1];
-		schwarzschild(nlevels, albedo, dtau_mol_lw_bandslayers[ib], B_layers, B_surface, Edn_levels, Eup_levels);
+		schwarzschild(nlevels, albedo, dtau_layers, B_layers, B_surface, Edn_levels, Eup_levels);
 		for (int i=0; i < nlevels; i++) {
 			total_Eup_levels[i] += Eup_levels[i];
 			total_Edn_levels[i] += Edn_levels[i];
@@ -280,6 +300,14 @@ int main() {
 	// Create a cloud
 	liquid_water_path_layers[10] = 5.6e-3;
 
+	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
+	double *wvl_lbound_lw_bands=NULL, *wvl_ubound_lw_bands=NULL, *q_ext_cloud_lw_bands=NULL, *omega0_cloud_lw_bands=NULL, *g_cloud_lw_bands=NULL;
+	char cloud_prop_lw_filepath[128] = "rrtm/cldprp/rrtm.lw.int";
+	cloud_prop_lw_status = read_5c_file(cloud_prop_lw_filepath, &wvl_lbound_lw_bands, &wvl_ubound_lw_bands, &q_ext_cloud_lw_bands, &omega0_cloud_lw_bands, &g_cloud_lw_bands, &nlevels_cloud_prop_lw_file);
+	if (cloud_prop_lw_status != 0) {
+		fprintf(stderr, "Error while opening file '%s'. Aborting...\n", cloud_prop_lw_filepath);
+		return 1;
+	}
 	int nlevels_cloud_prop_sw_file, cloud_prop_sw_status;
 	double *wvl_lbound_sw_bands=NULL, *wvl_ubound_sw_bands=NULL, *q_ext_cloud_sw_bands=NULL, *omega0_cloud_sw_bands=NULL, *g_cloud_sw_bands=NULL;
 	char cloud_prop_sw_filepath[128] = "rrtm/cldprp/rrtm.sw.int";
@@ -321,7 +349,7 @@ int main() {
 		double total_Eup_levels[nlevels], total_Edn_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
-		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, total_Edn_levels, total_Eup_levels);
+		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_levels, total_Eup_levels);
 		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
 		for (int i=0; i < nlevels; i++) {
 			total_Eup_levels[i] += total_Eup_sw_levels[i];
