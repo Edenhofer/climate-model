@@ -13,5 +13,6 @@
 #define PI 3.14159265358979323846  /* unit: unitless*/
 #define E_ABS 235  /* unit: W/m**2 */
 #define M_AIR 0.0289644  /* molar mass of Earth's air; unit: kg/mol */
+#define RHO_LIQUID 997  /* density of liquid water; unit: kg/m**3 */
 
 #endif
