@@ -181,9 +181,15 @@ void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressur
 			double dtau_ext_cloud = 3 * liquid_water_path_layers[i] * q_ext_cloud_bands[ib] / (4 * r_cloud * RHO_LIQUID);
 			double dtau_sca_cloud = omega0_cloud_bands[ib] * dtau_ext_cloud;
 
+			/* Delta-Scaling */
+			double f = pow(g_cloud_bands[ib], 2);
+			double g_cloud_scaled = (g_cloud_bands[ib] - f) / (1 - f);
+			dtau_sca_cloud *= (1. - f);
+			dtau_ext_cloud = dtau_sca_cloud + (1 - omega0_cloud_bands[ib]) * dtau_ext_cloud;
+
 			/* Direct radiation is subject to extinction due to gas absorption, rayleigh scattering and clouds */
 			dtau_layers[i] = dtau_mol_sw_bandslayers[ib][i] + dtau_ray_sw_bandslayers[ib][i] + dtau_ext_cloud;
-			g_layers[i] = (dtau_ray_sw_bandslayers[ib][i] * 0. + dtau_sca_cloud * g_cloud_bands[ib]) / (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud);
+			g_layers[i] = (dtau_ray_sw_bandslayers[ib][i] * 0. + dtau_sca_cloud * g_cloud_scaled) / (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud);
 			omega0_cloud_layers[i] = (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud) / dtau_layers[i];
 		}
 
