@@ -84,7 +84,7 @@ void doubling_adding(int nlevels, double albedo_ground, double *r_layers, double
 		E_direct_levels[i] = transmissivity_direct_layers[i-1] * E_direct_toa;
 		reflectivity_layers[i] = r_layers[i] + (reflectivity_layers[i-1] * t_layers[i] * t_layers[i]) / (1. - reflectivity_layers[i-1] * r_layers[i]);
 		transmissivity_layers[i] = (transmissivity_layers[i-1] * t_layers[i]) / (1. - reflectivity_layers[i-1] * r_layers[i]);
-		transmissivity_direct_layers[i] = transmissivity_direct_layers[i-1] * t_layers[i];
+		transmissivity_direct_layers[i] = transmissivity_direct_layers[i-1] * t_direct_layers[i];
 		scattering_direct_layers[i] = (t_layers[i] * scattering_direct_layers[i-1] + transmissivity_direct_layers[i-1] * r_direct_layers[i] * reflectivity_layers[i-1] * t_layers[i]) / (1. - reflectivity_layers[i-1] * r_layers[i]) + transmissivity_direct_layers[i-1] * s_direct_layers[i];
 	}
 	E_direct_levels[nlevels-1] = transmissivity_direct_layers[nlayers-1] * E_direct_toa;
