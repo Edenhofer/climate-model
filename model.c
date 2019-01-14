@@ -247,6 +247,7 @@ int main() {
 	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
 
 	double p0 = 1000;  /* unit: hPa */
+	double delta_p = p0/nlayers;
 
 	double cloud_frac;  // Fraction of clouds when mixing two atmospheres, one with and one without clouds
 	double r_cloud = 1e-5;  // Characteristic radius of a droplet; unit: m
@@ -346,12 +347,8 @@ int main() {
 		temperature_sum_prev = temperature_sum_curr;
 		temperature_sum_curr = 0.;
 
-		double delta_p = p0/nlayers;
-
 		//heating(temperature_layers, delta_t, p0, nlayers);
 		//cooling(temperature_layers, delta_t, p0, nlayers);
-
-		convection(temperature_layers, pressure_layers, nlayers);
 
 		/* Compute the flux using fixed bands
 		 * ```
@@ -365,6 +362,7 @@ int main() {
 		double total_Eup_lw_levels[nlevels], total_Edn_lw_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
+		/* Compute the energy fluxes using the RRTM */
 		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
 		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
 		for (int i=0; i < nlevels; i++) {
@@ -372,19 +370,18 @@ int main() {
 			total_Edn_levels[i] = total_E_direct_levels[i] + total_Edn_lw_levels[i] + total_Edn_sw_levels[i];
 		}
 
+		/* Calculate energy differences in order to adapt the temperature */
 		double div_E_layers[nlayers];
 		for (int i=0; i < nlayers; i++) {
 			div_E_layers[i] = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
 		}
 		div_E_layers[nlayers-1] += total_Edn_levels[nlevels-1] - total_Eup_levels[nlevels-1];
+		/* Calculate an adaptive time difference and add it to the runtime */
 		double max_E_net = 0.;
 		for (int i=0; i < nlayers; i++) {
 			max_E_net = max(fabs(div_E_layers[i]), max_E_net);
 		}
-
-		/* Calculate an adaptive time difference and add it to the runtime.
-		 * In the calculation convert between hPa and Pa by multiplying delta_p with 100.
-		 */
+		/* Convert between hPa and Pa by multiplying delta_p with 100 */
 		double delta_t = min(C_P/G * (100 * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
 		model_t += delta_t;
 		/* Actually adapt the temperature after having defined the time step; also see previous loop */
@@ -393,6 +390,10 @@ int main() {
 			temperature_sum_curr += temperature_layers[i];
 		}
 
+		/* Sort layers by potential temperature, a.k.a. do convection */
+		convection(temperature_layers, pressure_layers, nlayers);
+
+		/* Textual and visual output */
 		if (it%5 == 0) {
 			for (int i=0; i < nlevels; i++) {
 				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
