@@ -107,8 +107,9 @@ void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, dou
 	}
 }
 
-void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double *liquid_water_path_layers, double r_cloud, double *wvl_lbound_bands, double *wvl_ubound_bands, double *q_ext_cloud_bands, double *omega0_cloud_bands, int nlevels_cloud_prop_file, double *total_Edn_levels, double *total_Eup_levels) {
+void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *cfc11vmr, double *cfc12vmr, double *cfc22vmr, double *ccl4vmr, double *liquid_water_path_layers, double cloud_frac, double r_cloud, double *wvl_lbound_bands, double *wvl_ubound_bands, double *q_ext_cloud_bands, double *omega0_cloud_bands, int nlevels_cloud_prop_file, double *total_Edn_levels, double *total_Eup_levels) {
 	int nbands;
+	int nlevels = nlayers+1;
 	double *band_lbound_bands;
 	double *band_ubound_bands;
 	double **dtau_mol_lw_bandslayers;
@@ -128,11 +129,6 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 		}
 	}
 
-	int nlevels = nlayers+1;
-	double Eup_levels[nlevels];
-	double Edn_levels[nlevels];
-	double B_layers[nlayers];  /* unit: W * s / (m**2 * r) */
-
 	/* Reset energy fluxes */
 	for (int i=0; i < nlevels; i++) {
 		total_Eup_levels[i] = 0;
@@ -141,6 +137,9 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 
 	for (int ib=0; ib < nbands; ib++) {
 		double dtau_layers[nlayers];
+		double B_layers[nlayers];  /* unit: W * s / (m**2 * r) */
+		double Eup_cloud_levels[nlevels], Edn_cloud_levels[nlevels];
+		double Eup_plain_levels[nlevels], Edn_plain_levels[nlevels];
 
 		for (int i=0; i < nlayers; i++) {
 			B_layers[i] = wgt_lw_bandslayers[ib][i] * planck_int(1e-2/band_ubound_bands[ib], 1e-2/band_lbound_bands[ib], temperature_layers[i]);
@@ -153,15 +152,17 @@ void rrtm_lw_flux(int nlayers, double albedo, double *pressure_levels, double *t
 		}
 
 		double B_surface = B_layers[nlayers-1];
-		schwarzschild(nlevels, albedo, dtau_layers, B_layers, B_surface, Edn_levels, Eup_levels);
+		/* Simulate one atmosphere with and one without clouds */
+		schwarzschild(nlevels, albedo, dtau_mol_lw_bandslayers[ib], B_layers, B_surface, Edn_plain_levels, Eup_plain_levels);
+		schwarzschild(nlevels, albedo, dtau_layers, B_layers, B_surface, Edn_cloud_levels, Eup_cloud_levels);
 		for (int i=0; i < nlevels; i++) {
-			total_Eup_levels[i] += Eup_levels[i];
-			total_Edn_levels[i] += Edn_levels[i];
+			total_Eup_levels[i] += cloud_frac * Eup_cloud_levels[i] + (1. - cloud_frac) * Eup_plain_levels[i];
+			total_Edn_levels[i] += cloud_frac * Edn_cloud_levels[i] + (1. - cloud_frac) * Edn_plain_levels[i];
 		}
 	}
 }
 
-void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *liquid_water_path_layers, double r_cloud, double *wvl_lbound_bands, double *wvl_ubound_bands, double *q_ext_cloud_bands, double *omega0_cloud_bands, double *g_cloud_bands, int nlevels_cloud_prop_file, double *total_E_direct_levels, double *total_Edn_levels, double *total_Eup_levels) {
+void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressure_levels, double *temperature_layers, double *h2ovmr, double *o3vmr, double *co2vmr, double *ch4vmr, double *n2ovmr, double *o2vmr, double *liquid_water_path_layers, double cloud_frac, double r_cloud, double *wvl_lbound_bands, double *wvl_ubound_bands, double *q_ext_cloud_bands, double *omega0_cloud_bands, double *g_cloud_bands, int nlevels_cloud_prop_file, double *total_E_direct_levels, double *total_Edn_levels, double *total_Eup_levels) {
 	int nbands;
 	int nlevels = nlayers+1;
 	double *band_lbound_bands;
@@ -192,10 +193,10 @@ void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressur
 	}
 
 	for (int ib=0; ib < nbands; ib++) {
-		double dtau_layers[nlayers];
-		double g_layers[nlayers];
-		double omega0_cloud_layers[nlayers];
-		double E_direct_levels[nlevels], Eup_levels[nlevels], Edn_levels[nlevels];
+		double dtau_cloud_layers[nlayers], g_cloud_layers[nlayers], omega0_cloud_layers[nlayers];
+		double dtau_plain_layers[nlayers], g_plain_layers[nlayers], omega0_plain_layers[nlayers];
+		double E_direct_cloud_levels[nlevels], Eup_cloud_levels[nlevels], Edn_cloud_levels[nlevels];
+		double E_direct_plain_levels[nlevels], Eup_plain_levels[nlevels], Edn_plain_levels[nlevels];
 
 		for (int i=0; i < nlayers; i++) {
 			double dtau_ext_cloud = 3 * liquid_water_path_layers[i] * q_ext_cloud_bands[ib] / (4 * r_cloud * RHO_LIQUID);
@@ -208,16 +209,21 @@ void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressur
 			dtau_ext_cloud = dtau_sca_cloud + (1 - omega0_cloud_bands[ib]) * dtau_ext_cloud;
 
 			/* Direct radiation is subject to extinction due to gas absorption, rayleigh scattering and clouds */
-			dtau_layers[i] = dtau_mol_sw_bandslayers[ib][i] + dtau_ray_sw_bandslayers[ib][i] + dtau_ext_cloud;
-			g_layers[i] = (dtau_ray_sw_bandslayers[ib][i] * 0. + dtau_sca_cloud * g_cloud_scaled) / (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud);
-			omega0_cloud_layers[i] = (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud) / dtau_layers[i];
+			dtau_cloud_layers[i] = dtau_mol_sw_bandslayers[ib][i] + dtau_ray_sw_bandslayers[ib][i] + dtau_ext_cloud;
+			g_cloud_layers[i] = (dtau_ray_sw_bandslayers[ib][i] * 0. + dtau_sca_cloud * g_cloud_scaled) / (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud);
+			omega0_cloud_layers[i] = (dtau_ray_sw_bandslayers[ib][i] + dtau_sca_cloud) / dtau_cloud_layers[i];
+			/* Same thing but without any clouds */
+			dtau_plain_layers[i] = dtau_mol_sw_bandslayers[ib][i] + dtau_ray_sw_bandslayers[ib][i];
+			g_plain_layers[i] = 0.;
+			omega0_plain_layers[i] = dtau_ray_sw_bandslayers[ib][i] / dtau_plain_layers[i];
 		}
 
-		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_layers, omega0_cloud_layers, dtau_layers, E_direct_levels, Edn_levels, Eup_levels);
+		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_plain_layers, omega0_plain_layers, dtau_plain_layers, E_direct_plain_levels, Edn_plain_levels, Eup_plain_levels);
+		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_cloud_layers, omega0_cloud_layers, dtau_cloud_layers, E_direct_cloud_levels, Edn_cloud_levels, Eup_cloud_levels);
 		for (int i=0; i < nlevels; i++) {
-			total_E_direct_levels[i] += E_direct_levels[i];
-			total_Eup_levels[i] += Eup_levels[i];
-			total_Edn_levels[i] += Edn_levels[i];
+			total_E_direct_levels[i] += cloud_frac * E_direct_cloud_levels[i] + (1. - cloud_frac) * E_direct_plain_levels[i];
+			total_Eup_levels[i] += cloud_frac * Eup_cloud_levels[i] + (1. - cloud_frac) * Eup_plain_levels[i];
+			total_Edn_levels[i] += cloud_frac * Edn_cloud_levels[i] + (1. - cloud_frac) * Edn_plain_levels[i];
 		}
 	}
 }
@@ -242,6 +248,7 @@ int main() {
 
 	double p0 = 1000;  /* unit: hPa */
 
+	double cloud_frac;  // Fraction of clouds when mixing two atmospheres, one with and one without clouds
 	double r_cloud = 1e-5;  // Characteristic radius of a droplet; unit: m
 	double A_g = 0.12;  // Albedo at the ground
 	double mu0 = 0.25;  // Integrate the day-night cycle via a clever parametrization
@@ -300,6 +307,7 @@ int main() {
 
 	// Create a cloud
 	liquid_water_path_layers[10] = 5.6e-3;
+	cloud_frac = .8;
 
 	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
 	double *wvl_lbound_lw_bands=NULL, *wvl_ubound_lw_bands=NULL, *q_ext_cloud_lw_bands=NULL, *omega0_cloud_lw_bands=NULL, *g_cloud_lw_bands=NULL;
@@ -354,13 +362,14 @@ int main() {
 		 */
 
 		double total_Eup_levels[nlevels], total_Edn_levels[nlevels];
+		double total_Eup_lw_levels[nlevels], total_Edn_lw_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
-		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_levels, total_Eup_levels);
-		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
+		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
+		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
 		for (int i=0; i < nlevels; i++) {
-			total_Eup_levels[i] += total_Eup_sw_levels[i];
-			total_Edn_levels[i] += total_Edn_sw_levels[i];
+			total_Eup_levels[i] = total_Eup_lw_levels[i] + total_Eup_sw_levels[i];
+			total_Edn_levels[i] = total_Edn_lw_levels[i] + total_Edn_sw_levels[i];
 		}
 
 		double max_E_net = 1.;
@@ -394,11 +403,11 @@ int main() {
 			}
 
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
-			printf("%12s %12s %12s %12s %12s %12s %12s\n", "Edn[W]", "Eup[W]", "E_dir[W]", "Edn_sw[W]", "Eup_sw[W]", "z_lyr[m]", "T_lyr[K]");
+			printf("%12s %12s %12s %12s %12s %12s %12s %12s %12s\n", "Edn[W]", "Eup[W]", "Edn_lw[W]", "Eup_lw[W]", "E_dir[W]", "Edn_sw[W]", "Eup_sw[W]", "z_lyr[m]", "T_lyr[K]");
 			for (int i=0; i < nlayers; i++) {
-				printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], total_E_direct_levels[i], total_Edn_sw_levels[i], total_Eup_sw_levels[i], z_layers[i], temperature_layers[i]);
+				printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], total_Edn_lw_levels[i], total_Eup_lw_levels[i], total_E_direct_levels[i], total_Edn_sw_levels[i], total_Eup_sw_levels[i], z_layers[i], temperature_layers[i]);
 			}
-			printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], total_E_direct_levels[nlevels-1], total_Edn_sw_levels[nlevels-1], total_Eup_sw_levels[nlevels-1], (double) NAN, (double) NAN);
+			printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], total_Edn_lw_levels[nlevels-1], total_Eup_lw_levels[nlevels-1], total_E_direct_levels[nlevels-1], total_Edn_sw_levels[nlevels-1], total_Eup_sw_levels[nlevels-1], (double) NAN, (double) NAN);
 
 			gnuplot_resetplot(g1);  /* Start with a new plot rather than plotting into existing one */
 			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
