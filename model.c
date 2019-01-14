@@ -257,6 +257,7 @@ int main() {
 	double pressure_layers[nlayers];
 	double temperature_layers[nlayers];  /* unit: Kelvin */
 	double z_layers[nlayers];
+	double relative_humidity_layers[nlayers];
 	double liquid_water_path_layers[nlayers];
 
 	double pressure_levels[nlevels];
@@ -304,6 +305,16 @@ int main() {
 		ccl4vmr[i] = 0.;
 
 		printf("%5i %12g %12g %12g %12g %12g %12g %12g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
+	}
+
+	/* Compute the relative humidity profile from the standard atmosphere
+	 * in order to keep it constant later on by adapting the VMR of H20.
+	 */
+	for (int i=0; i < nlayers; i++) {
+		/* August-Roche-Magnus formula for saturation water vapor pressure */
+		double saturation_h2o_vapor_pressure = 6.1094 * exp(17.625 * (temperature_layers[i] - 273.15) / (temperature_layers[i] - 273.15 + 243.04));
+		double saturation_h2o_vmr = saturation_h2o_vapor_pressure / pressure_layers[i];
+		relative_humidity_layers[i] = 100 * h2ovmr[i] / saturation_h2o_vmr;
 	}
 
 	// Create a cloud
@@ -361,6 +372,14 @@ int main() {
 		double total_Eup_levels[nlevels], total_Edn_levels[nlevels];
 		double total_Eup_lw_levels[nlevels], total_Edn_lw_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
+
+		/* Keep the relative humidity constant by adapting the VMR of H2O */
+		for (int i=0; i < nlayers; i++) {
+			/* August-Roche-Magnus formula for saturation water vapor pressure */
+			double saturation_h2o_vapor_pressure = 6.1094 * exp(17.625 * (temperature_layers[i] - 273.15) / (temperature_layers[i] - 273.15 + 243.04));
+			double saturation_h2o_vmr = saturation_h2o_vapor_pressure / pressure_layers[i];
+			h2ovmr[i] = relative_humidity_layers[i] * saturation_h2o_vmr / 100;
+		}
 
 		/* Compute the energy fluxes using the RRTM */
 		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
