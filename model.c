@@ -369,17 +369,17 @@ int main() {
 		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
 		for (int i=0; i < nlevels; i++) {
 			total_Eup_levels[i] = total_Eup_lw_levels[i] + total_Eup_sw_levels[i];
-			total_Edn_levels[i] = total_Edn_lw_levels[i] + total_Edn_sw_levels[i];
+			total_Edn_levels[i] = total_E_direct_levels[i] + total_Edn_lw_levels[i] + total_Edn_sw_levels[i];
 		}
 
-		double max_E_net = 1.;
-		/* Preemptively adapt the value of Eup at the surface to make the following loop work.
-		 * This is necessary as the surface does not transfer heat any lower. Furthermore, apply surface heating.
-		 */
-		total_Eup_levels[nlevels-1] = total_Edn_levels[nlevels-1] + E_ABS;
+		double div_E_layers[nlayers];
 		for (int i=0; i < nlayers; i++) {
-			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
-			max_E_net = max(fabs(delta_E_abs), max_E_net);
+			div_E_layers[i] = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
+		}
+		div_E_layers[nlayers-1] += total_Edn_levels[nlevels-1] - total_Eup_levels[nlevels-1];
+		double max_E_net = 0.;
+		for (int i=0; i < nlayers; i++) {
+			max_E_net = max(fabs(div_E_layers[i]), max_E_net);
 		}
 
 		/* Calculate an adaptive time difference and add it to the runtime.
@@ -389,8 +389,7 @@ int main() {
 		model_t += delta_t;
 		/* Actually adapt the temperature after having defined the time step; also see previous loop */
 		for (int i=0; i < nlayers; i++) {
-			double delta_E_abs = (total_Edn_levels[i] - total_Eup_levels[i]) - (total_Edn_levels[i+1] - total_Eup_levels[i+1]);
-			temperature_layers[i] += delta_E_abs * G / (100 * delta_p * C_P) * delta_t;
+			temperature_layers[i] += div_E_layers[i] * G / (100 * delta_p * C_P) * delta_t;
 			temperature_sum_curr += temperature_layers[i];
 		}
 
