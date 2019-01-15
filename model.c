@@ -258,9 +258,9 @@ int main() {
 	double p0 = 1000;  /* unit: hPa */
 	double delta_p = p0/nlayers;
 
+	double A_g = 25/185;  // Albedo at the ground
 	double cloud_frac;  // Fraction of clouds when mixing two atmospheres, one with and one without clouds
 	double r_cloud = 1e-5;  // Characteristic radius of a droplet; unit: m
-	double A_g = 0.12;  // Albedo at the ground
 	double mu0 = 0.25;  // Integrate the day-night cycle via a clever parametrization
 
 	double pressure_layers[nlayers];
@@ -326,9 +326,12 @@ int main() {
 		relative_humidity_layers[i] = 100 * h2ovmr[i] / saturation_h2o_vmr;
 	}
 
-	// Create a cloud
-	liquid_water_path_layers[10] = 5.6e-3;
-	cloud_frac = .8;
+	/* Create a cloud */
+	liquid_water_path_layers[5] = 2e-3;
+	liquid_water_path_layers[10] = 6.5e-3;
+	liquid_water_path_layers[11] = 18.5e-3;
+	liquid_water_path_layers[12] = 8e-3;
+	cloud_frac = .5;
 
 	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
 	double *wvl_lbound_lw_bands=NULL, *wvl_ubound_lw_bands=NULL, *q_ext_cloud_lw_bands=NULL, *omega0_cloud_lw_bands=NULL, *g_cloud_lw_bands=NULL;
