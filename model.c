@@ -226,8 +226,9 @@ void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressur
 			omega0_plain_layers[i] = dtau_ray_sw_bandslayers[ib][i] / dtau_plain_layers[i];
 		}
 
-		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_plain_layers, omega0_plain_layers, dtau_plain_layers, E_direct_plain_levels, Edn_plain_levels, Eup_plain_levels);
-		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib], g_cloud_layers, omega0_cloud_layers, dtau_cloud_layers, E_direct_cloud_levels, Edn_cloud_levels, Eup_cloud_levels);
+		/* The factor 340.5/ 342.055 corrects for the RRTM wrong representation of the incoming radiation */
+		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib] * (340.5 / 342.0555), g_plain_layers, omega0_plain_layers, dtau_plain_layers, E_direct_plain_levels, Edn_plain_levels, Eup_plain_levels);
+		doubling_adding_eddington(nlevels, albedo_ground, mu0, wgt_sw_bandslayers[ib] * (340.5 / 342.0555), g_cloud_layers, omega0_cloud_layers, dtau_cloud_layers, E_direct_cloud_levels, Edn_cloud_levels, Eup_cloud_levels);
 		for (int i=0; i < nlevels; i++) {
 			total_E_direct_levels[i] += cloud_frac * E_direct_cloud_levels[i] + (1. - cloud_frac) * E_direct_plain_levels[i];
 			total_Eup_levels[i] += cloud_frac * Eup_cloud_levels[i] + (1. - cloud_frac) * Eup_plain_levels[i];
