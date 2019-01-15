@@ -308,10 +308,10 @@ int main() {
 		ch4vmr[i] = 1.7e-6;
 		n2ovmr[i] = 320e-9;
 		o2vmr[i] = .209;
-		cfc11vmr[i] = 0.;
-		cfc12vmr[i] = 0.;
-		cfc22vmr[i] = 0.;
-		ccl4vmr[i] = 0.;
+		cfc11vmr[i] = 232e-12;
+		cfc12vmr[i] = 516e-12;
+		cfc22vmr[i] = 233e-12;
+		ccl4vmr[i] = 82e-12;
 
 		printf("%5i %12g %12g %12g %12g %12g %12g %12g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
 	}
