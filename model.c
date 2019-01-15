@@ -43,8 +43,8 @@ double barometric_PToZ(double p, double T_b, double p_b) {
 	return -1 * R_STAR * T_b / (M_AIR * G) * log(p / p_b);
 }
 
-void concentration_interpolation(double *x_lines, double *y_lines, int nlines, double *x_layers, double *y_layers, int nlayers) {
-	/* Interpolate concentrations at given values for arbitrary layers and convert from ppm to vmr */
+void interp(double *x_lines, double *y_lines, int nlines, double *x_layers, int nlayers, double *y_layers) {
+	/* Interpolate points at given values for an arbitrary number of points */
 	gsl_interp *workspace;
 	gsl_interp_accel *accel;
 
@@ -53,12 +53,20 @@ void concentration_interpolation(double *x_lines, double *y_lines, int nlines, d
 
 	gsl_interp_init(workspace, x_lines, y_lines, nlines);
 	for (int i=0; i < nlayers; i++) {
-		/* Interpolate between points and multiply with 1e-6 as to translate ppm to vmr */
-		y_layers[i] = gsl_interp_eval(workspace, x_lines, y_lines, x_layers[i], accel) * 1e-6;
+		/* Interpolate between points */
+		y_layers[i] = gsl_interp_eval(workspace, x_lines, y_lines, x_layers[i], accel);
 	}
 
 	gsl_interp_accel_free(accel);
 	gsl_interp_free(workspace);
+}
+
+void concentration_interp(double *x_lines, double *y_lines, int nlines, double *x_layers, int nlayers, double *y_layers) {
+	interp(x_lines, y_lines, nlines, x_layers, nlayers, y_layers);
+	for (int i=0; i < nlayers; i++) {
+		/* Multiply with 1e-6 as to translate ppm to vmr */
+		y_layers[i] *= 1e-6;
+	}
 }
 
 void convection(double *temperature, double *pressure_layers, int nlayers) {
@@ -273,14 +281,13 @@ int main() {
 	}
 	for (int i=0; i < nlayers; i++) {
 		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
-		temperature_layers[i] = 288. - ((double) nlayers - (double) i - 1.) * 50./((double) nlayers - 1.);
 		liquid_water_path_layers[i] = 0.;
 	}
 
 	int nlevels_fpda_file, fpda_status;
-	double *h2oppm=NULL, *o3ppm=NULL, *discard1=NULL, *discard2=NULL, *discard3=NULL;
+	double *temperature_given=NULL, *h2oppm=NULL, *o3ppm=NULL, *discard1=NULL, *discard2=NULL;
 	char fpda_filepath[128] = "ascii/fpda.atm";
-	fpda_status = read_5c_file(fpda_filepath, &discard1, &discard2, &discard3, &h2oppm, &o3ppm, &nlevels_fpda_file);
+	fpda_status = read_5c_file(fpda_filepath, &discard1, &discard2, &temperature_given, &h2oppm, &o3ppm, &nlevels_fpda_file);
 	if (fpda_status != 0) {
 		fprintf(stderr, "Error while opening file '%s'. Aborting...\n", fpda_filepath);
 		return 1;
@@ -290,9 +297,10 @@ int main() {
 	for (int i=0; i < nlevels_fpda_file; i++) {
 		pressure_given[i] = p0/(nlevels_fpda_file - 1) * i;
 	}
-	concentration_interpolation(pressure_given, h2oppm, nlevels_fpda_file, pressure_layers, h2ovmr, nlayers);
-	concentration_interpolation(pressure_given, o3ppm, nlevels_fpda_file, pressure_layers, o3vmr, nlayers);
-
+	interp(pressure_given, temperature_given, nlevels_fpda_file, pressure_layers, nlayers, temperature_layers);
+	concentration_interp(pressure_given, h2oppm, nlevels_fpda_file, pressure_layers, nlayers, h2ovmr);
+	concentration_interp(pressure_given, o3ppm, nlevels_fpda_file, pressure_layers, nlayers, o3vmr);
+	/* Print the interpolated values and non-interpolated particle concentration values in tabular format */
 	printf("%5s %12s %12s %12s %12s %12s %12s %12s\n", "Layer", "T[K]", "H2O", "O3", "CO2", "CH4", "N2O", "O2");
 	for (int i=0; i < nlayers; i++) {
 		co2vmr[i] = 400e-6;
