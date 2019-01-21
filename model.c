@@ -11,6 +11,9 @@
 #include "fpda_rrtm_sw.h"
 #include "fpda_rrtm_lw.h"
 
+/* Incorporate the latent heat via an adapted heat capacity */
+#define C_P_LATENT C_P*9.8/6.5
+
 #define ABSTOL 1e-10
 
 #define max(a, b) \
@@ -32,11 +35,11 @@ int negCompare(const void *a, const void *b) {
 }
 
 double TToTheta(double T, double p) {
-	return T * pow(1000./p, R_A/C_P);
+	return T * pow(1000./p, R_A/C_P_LATENT);
 }
 
 double ThetaToT(double Theta, double p) {
-	return Theta * pow(p/1000., R_A/C_P);
+	return Theta * pow(p/1000., R_A/C_P_LATENT);
 }
 
 double barometric_PToZ(double p, double T_b, double p_b) {
@@ -239,13 +242,13 @@ void rrtm_sw_flux(int nlayers, double albedo_ground, double mu0, double *pressur
 
 void heating(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
-	temperature[nlayers-1] += E_ABS * delta_t * G / (delta_p * C_P);
+	temperature[nlayers-1] += E_ABS * delta_t * G / (delta_p * C_P_LATENT);
 }
 
 void cooling(double *temperature, double delta_t, double p0, int nlayers) {
 	double delta_p = p0/nlayers;
 	double emissivity = 1./3.;
-	temperature[nlayers-1] -= emissivity * SIGMA_SB * pow(temperature[nlayers-1], 4) * delta_t * G / (delta_p * C_P);
+	temperature[nlayers-1] -= emissivity * SIGMA_SB * pow(temperature[nlayers-1], 4) * delta_t * G / (delta_p * C_P_LATENT);
 }
 
 int main() {
@@ -258,7 +261,8 @@ int main() {
 	double p0 = 1000;  /* unit: hPa */
 	double delta_p = p0/nlayers;
 
-	double A_g = 25/185;  // Albedo at the ground
+	double A_g_lw = 0.;
+	double A_g_sw = 26/180;  // Albedo at the ground
 	double cloud_frac;  // Fraction of clouds when mixing two atmospheres, one with and one without clouds
 	double r_cloud = 1e-5;  // Characteristic radius of a droplet; unit: m
 	double mu0 = 0.25;  // Integrate the day-night cycle via a clever parametrization
@@ -327,10 +331,10 @@ int main() {
 	}
 
 	/* Create a cloud */
-	liquid_water_path_layers[5] = 2e-3;
-	liquid_water_path_layers[10] = 6.5e-3;
-	liquid_water_path_layers[11] = 18.5e-3;
-	liquid_water_path_layers[12] = 8e-3;
+	liquid_water_path_layers[8] = 2e-3;
+	//liquid_water_path_layers[11] = 6.5e-3;
+	liquid_water_path_layers[14] = 22e-3;
+	liquid_water_path_layers[15] = 12e-3;
 	cloud_frac = .5;
 
 	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
@@ -394,8 +398,8 @@ int main() {
 		}
 
 		/* Compute the energy fluxes using the RRTM */
-		rrtm_lw_flux(nlayers, A_g, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
-		rrtm_sw_flux(nlayers, A_g, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
+		rrtm_lw_flux(nlayers, A_g_lw, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
+		rrtm_sw_flux(nlayers, A_g_sw, mu0, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_sw_bands, wvl_ubound_sw_bands, q_ext_cloud_sw_bands, omega0_cloud_sw_bands, g_cloud_sw_bands, nlevels_cloud_prop_sw_file, total_E_direct_levels, total_Edn_sw_levels, total_Eup_sw_levels);
 		for (int i=0; i < nlevels; i++) {
 			total_Eup_levels[i] = total_Eup_lw_levels[i] + total_Eup_sw_levels[i];
 			total_Edn_levels[i] = total_E_direct_levels[i] + total_Edn_lw_levels[i] + total_Edn_sw_levels[i];
@@ -413,11 +417,11 @@ int main() {
 			max_E_net = max(fabs(div_E_layers[i]), max_E_net);
 		}
 		/* Convert between hPa and Pa by multiplying delta_p with 100 */
-		double delta_t = min(C_P/G * (100 * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
+		double delta_t = min(C_P_LATENT/G * (100 * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
 		model_t += delta_t;
 		/* Actually adapt the temperature after having defined the time step; also see previous loop */
 		for (int i=0; i < nlayers; i++) {
-			temperature_layers[i] += div_E_layers[i] * G / (100 * delta_p * C_P) * delta_t;
+			temperature_layers[i] += div_E_layers[i] * G / (100 * delta_p * C_P_LATENT) * delta_t;
 			temperature_sum_curr += temperature_layers[i];
 		}
 
