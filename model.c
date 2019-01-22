@@ -269,13 +269,11 @@ int main() {
 
 	double pressure_layers[nlayers];
 	double temperature_layers[nlayers];  /* unit: Kelvin */
-	double z_layers[nlayers];
+	double z_layers[nlayers];  /* altitude; unit: m */
 	double relative_humidity_layers[nlayers];
 	double liquid_water_path_layers[nlayers];
 
 	double pressure_levels[nlevels];
-	double temperature_levels[nlevels];  /* unit: Kelvin */
-	double z_levels[nlevels];  /* altitude; unit: m */
 	double h2ovmr[nlayers], o3vmr[nlayers], co2vmr[nlayers], ch4vmr[nlayers], n2ovmr[nlayers], o2vmr[nlayers], cfc11vmr[nlayers], cfc12vmr[nlayers], cfc22vmr[nlayers], ccl4vmr[nlayers];
 
 	printf("Initializing arrays...\n");
@@ -430,11 +428,8 @@ int main() {
 
 		/* Textual and visual output */
 		if (it%5 == 0) {
-			for (int i=0; i < nlevels; i++) {
-				z_levels[i] = barometric_PToZ(pressure_levels[i], temperature_layers[nlayers-1], p0);
-			}
 			for (int i=0; i < nlayers; i++) {
-				z_layers[i] = (z_levels[i] + z_levels[i+1]) / 2.;
+				z_layers[i] = barometric_PToZ(pressure_layers[i], temperature_layers[nlayers-1], p0);
 			}
 
 			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
@@ -460,23 +455,6 @@ int main() {
 	scanf(&tmp);
 	gnuplot_close(g1);
 	printf("\n");
-
-	temperature_levels[0] = T_UNIVERSE;
-	temperature_levels[nlevels-1] = temperature_layers[nlayers-1];
-	for (int i=1; i < nlayers; i++) {
-		temperature_levels[i] = (temperature_layers[i] + temperature_layers[i-1]) / 2.;
-	}
-
-	printf("Modelled results by levels...\n");
-	printf("%5s %12s %12s %12s\n", "Level", "p[hPa]", "z[m]", "T[K]");
-	for (int i=0; i < nlevels; i++) {
-		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_levels[i], z_levels[i], temperature_levels[i]);
-	}
-	printf("Modelled results by layers...\n");
-	printf("%5s %12s %12s %12s\n", "Layer", "p[hPa]", "z[m]", "T[K]");
-	for (int i=0; i < nlayers; i++) {
-		printf("%5d %12.4f %12.4f %12.4f\n", i, pressure_layers[i], z_layers[i], temperature_layers[i]);
-	}
 
 	return 0;
 }
