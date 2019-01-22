@@ -298,18 +298,14 @@ int main() {
 	}
 
 	int nlevels_fpda_file, fpda_status;
-	double *temperature_given=NULL, *h2oppm=NULL, *o3ppm=NULL, *discard1=NULL, *discard2=NULL;
+	double *pressure_given=NULL, *temperature_given=NULL, *h2oppm=NULL, *o3ppm=NULL, *discard=NULL;
 	char fpda_filepath[128] = "ascii/fpda.atm";
-	fpda_status = read_5c_file(fpda_filepath, &discard1, &discard2, &temperature_given, &h2oppm, &o3ppm, &nlevels_fpda_file);
+	fpda_status = read_5c_file(fpda_filepath, &discard, &pressure_given, &temperature_given, &h2oppm, &o3ppm, &nlevels_fpda_file);
 	if (fpda_status != 0) {
 		fprintf(stderr, "Error while opening file '%s'. Aborting...\n", fpda_filepath);
 		return 1;
 	}
-	/* Interpolate concentrations for arbitrary layers */
-	double pressure_given[nlevels_fpda_file];
-	for (int i=0; i < nlevels_fpda_file; i++) {
-		pressure_given[i] = p0/(nlevels_fpda_file - 1) * i;
-	}
+	/* Interpolate temperature and concentrations for arbitrary layers */
 	interp(pressure_given, temperature_given, nlevels_fpda_file, pressure_layers, nlayers, temperature_layers);
 	concentration_interp(pressure_given, h2oppm, nlevels_fpda_file, pressure_layers, nlayers, h2ovmr);
 	concentration_interp(pressure_given, o3ppm, nlevels_fpda_file, pressure_layers, nlayers, o3vmr);
