@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <stdlib.h>
 #include <gsl/gsl_errno.h>
@@ -20,6 +21,20 @@
 	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })
 #define min(a, b) \
 	({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _a : _b; })
+
+void tee(FILE *f, char const *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	va_end(ap);
+	va_start(ap, fmt);
+	vfprintf(f, fmt, ap);
+	va_end(ap);
+
+	/* Ensure results are immediately saved */
+	fflush(stdout);
+	fflush(f);
+}
 
 int areSame(double a, double b) {
     return fabs(a - b) < ABSTOL;
@@ -455,6 +470,16 @@ int main() {
 	scanf(&tmp);
 	gnuplot_close(g1);
 	printf("\n");
+
+	/* Write out modelled atmosphere to use for later runs */
+	FILE *fp;
+	fp = fopen("ascii/model.atm", "w");
+	tee(fp, "%1s%11s %12s %12s %12s %12s\n", "#", "z_lyr[km]", "p_lyr[hPa]", "T_lyr[K]", "H2O[ppm]", "O3[ppm]");
+	for (int i=0; i < nlayers; i++) {
+		/* Multiply with 1e+6 as to translate vmr to ppm */
+		tee(fp, "%12.4f %12.4f %12.4f %12.4f %12.4f\n", z_layers[i]/1e+3, pressure_layers[i], temperature_layers[i], h2ovmr[i]*1e+6, o3vmr[i]*1e+6);
+	}
+	fclose(fp);
 
 	return 0;
 }
