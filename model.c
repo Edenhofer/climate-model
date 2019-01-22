@@ -85,6 +85,16 @@ void convection(double *temperature, double *pressure_layers, int nlayers) {
 	}
 }
 
+void water_vapor_feedback(int nlayers, double *relative_humidity_layers, double *temperature_layers, double *pressure_layers, double *h2ovmr) {
+	/* Keep the relative humidity constant by adapting the VMR of H2O */
+	for (int i=0; i < nlayers; i++) {
+		/* August-Roche-Magnus formula for saturation water vapor pressure */
+		double saturation_h2o_vapor_pressure = 6.1094 * exp(17.625 * (temperature_layers[i] - 273.15) / (temperature_layers[i] - 273.15 + 243.04));
+		double saturation_h2o_vmr = saturation_h2o_vapor_pressure / pressure_layers[i];
+		h2ovmr[i] = relative_humidity_layers[i] * saturation_h2o_vmr / 100;
+	}
+}
+
 void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, double *dtau_windows, double *temperature_layers, double *total_Edn_levels, double *total_Eup_levels) {
 	int nlayers = nlevels - 1;
 	double Eup_levels[nlevels];
@@ -387,13 +397,7 @@ int main() {
 		double total_Eup_lw_levels[nlevels], total_Edn_lw_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
-		/* Keep the relative humidity constant by adapting the VMR of H2O */
-		for (int i=0; i < nlayers; i++) {
-			/* August-Roche-Magnus formula for saturation water vapor pressure */
-			double saturation_h2o_vapor_pressure = 6.1094 * exp(17.625 * (temperature_layers[i] - 273.15) / (temperature_layers[i] - 273.15 + 243.04));
-			double saturation_h2o_vmr = saturation_h2o_vapor_pressure / pressure_layers[i];
-			h2ovmr[i] = relative_humidity_layers[i] * saturation_h2o_vmr / 100;
-		}
+		water_vapor_feedback(nlayers, relative_humidity_layers, temperature_layers, pressure_layers, h2ovmr);
 
 		/* Compute the energy fluxes using the RRTM */
 		rrtm_lw_flux(nlayers, A_g_lw, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
