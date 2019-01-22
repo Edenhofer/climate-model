@@ -369,11 +369,6 @@ int main() {
 	double temperature_sum_curr = temperature_sum_prev + delta_temperature_threshold + 1.;
 	while (n_temperature < n_temperature_ter) {
 		it++;
-		if (fabs(temperature_sum_curr - temperature_sum_prev) < delta_temperature_threshold) {
-			n_temperature++;
-		} else {
-			n_temperature = 0;
-		}
 		temperature_sum_prev = temperature_sum_curr;
 		temperature_sum_curr = 0.;
 
@@ -425,8 +420,14 @@ int main() {
 		/* Sort layers by potential temperature, a.k.a. do convection */
 		convection(temperature_layers, pressure_layers, nlayers);
 
+		if (fabs(temperature_sum_curr - temperature_sum_prev) < delta_temperature_threshold) {
+			n_temperature++;
+		} else {
+			n_temperature = 0;
+		}
+
 		/* Textual and visual output */
-		if (it%5 == 0) {
+		if (it%5 == 0 || n_temperature == n_temperature_ter) {
 			for (int i=0; i < nlayers; i++) {
 				z_layers[i] = barometric_PToZ(pressure_layers[i], temperature_layers[nlayers-1], p0);
 			}
