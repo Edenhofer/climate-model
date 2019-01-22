@@ -339,10 +339,9 @@ int main() {
 	}
 
 	/* Create a cloud */
-	liquid_water_path_layers[8] = 2e-3;
-	//liquid_water_path_layers[11] = 6.5e-3;
-	liquid_water_path_layers[14] = 22e-3;
-	liquid_water_path_layers[15] = 12e-3;
+	liquid_water_path_layers[(int) round(8./22.*nlayers)] = 2e-3;
+	liquid_water_path_layers[(int) round(14./22.*nlayers)] = 22e-3;
+	liquid_water_path_layers[(int) round(15./22.*nlayers)] = 12e-3;
 	cloud_frac = .5;
 
 	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
