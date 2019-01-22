@@ -6,7 +6,7 @@
 
 double planck(double lambda, double T) {
 	/* Returns B as an irradiance! */
-	return 2 * PI * H * pow(C, 2) / pow(lambda, 5) * 1 / (exp(H * C / (lambda * K_B * T)) - 1);
+	return 2 * PI * H * C * C / (lambda * lambda * lambda * lambda * lambda) * 1 / (exp(H * C / (lambda * K_B * T)) - 1);
 }
 
 double planck_int(double lambda_lower, double lambda_upper, double T) {
