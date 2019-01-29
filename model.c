@@ -110,6 +110,16 @@ void water_vapor_feedback(int nlayers, double *relative_humidity_layers, double 
 	}
 }
 
+double albedo_feedback(double temperature_srf) {
+	double temperature_hot = 310.;
+
+	double albedo = 0.05 + 0.1 / (temperature_hot - 273.15) * (temperature_hot - temperature_srf);
+	albedo = max(albedo, 0.05);  // Ocean planet
+	albedo = min(albedo, 0.5);  // Dirty snow
+
+	return albedo;
+}
+
 void band_flux(int nlevels, int nbands, double albedo, double *lambda_bands, double *dtau_windows, double *temperature_layers, double *total_Edn_levels, double *total_Eup_levels) {
 	int nlayers = nlevels - 1;
 	double Eup_levels[nlevels];
@@ -402,6 +412,7 @@ int main() {
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
 		water_vapor_feedback(nlayers, relative_humidity_layers, temperature_layers, pressure_layers, h2ovmr);
+		A_g_sw = albedo_feedback(temperature_layers[nlayers-1]);
 
 		/* Compute the energy fluxes using the RRTM */
 		rrtm_lw_flux(nlayers, A_g_lw, pressure_levels, temperature_layers, h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, liquid_water_path_layers, cloud_frac, r_cloud, wvl_lbound_lw_bands, wvl_ubound_lw_bands, q_ext_cloud_lw_bands, omega0_cloud_lw_bands, nlevels_cloud_prop_lw_file, total_Edn_lw_levels, total_Eup_lw_levels);
@@ -446,7 +457,7 @@ int main() {
 				z_layers[i] = barometric_PToZ(pressure_layers[i], temperature_layers[nlayers-1], p0);
 			}
 
-			printf("Iteration %7d at time %6.2fd (%8.1fs)\n", it, model_t / (60*60*24), model_t);
+			printf("Iteration %7d at time %6.2fd (%8.1fs) with an albedo of %6.3f\n", it, model_t / (60*60*24), model_t, A_g_sw);
 			printf("%12s %12s %12s %12s %12s %12s %12s %12s %12s\n", "Edn[W]", "Eup[W]", "Edn_lw[W]", "Eup_lw[W]", "E_dir[W]", "Edn_sw[W]", "Eup_sw[W]", "z_lyr[m]", "T_lyr[K]");
 			for (int i=0; i < nlayers; i++) {
 				printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], total_Edn_lw_levels[i], total_Eup_lw_levels[i], total_E_direct_levels[i], total_Edn_sw_levels[i], total_Eup_sw_levels[i], z_layers[i], temperature_layers[i]);
