@@ -279,7 +279,7 @@ void cooling(double *temperature, double delta_t, double p0, int nlayers) {
 int main() {
 	int nlayers = 22;  /* number of layers */
 	int nlevels = nlayers + 1;  /* number of levels */
-	double bound_delta_time = 12 * 60 * 60;  /* Bound on the timestep */
+	double bound_delta_time = 12. * 60. * 60.;  /* Bound on the timestep */
 	int n_temperature_ter = 5;  /* Number of times the temperature has to be within the threshold */
 	double delta_temperature_threshold = 1e-4;  /* Temperature threshold for model termination */
 
@@ -287,7 +287,7 @@ int main() {
 	double delta_p = p0/nlayers;
 
 	double A_g_lw = 0.;
-	double A_g_sw = 26/180;  // Albedo at the ground
+	double A_g_sw = 22./189.;  // Albedo at the ground
 	double cloud_frac;  // Fraction of clouds when mixing two atmospheres, one with and one without clouds
 	double r_cloud = 1e-5;  // Characteristic radius of a droplet; unit: m
 	double mu0 = 0.25;  // Integrate the day-night cycle via a clever parametrization
@@ -350,9 +350,8 @@ int main() {
 	}
 
 	/* Create a cloud */
-	liquid_water_path_layers[(int) round(8./22.*nlayers)] = 2e-3;
-	liquid_water_path_layers[(int) round(14./22.*nlayers)] = 22e-3;
-	liquid_water_path_layers[(int) round(15./22.*nlayers)] = 12e-3;
+	liquid_water_path_layers[(int) round(5./22.*nlayers)] = 0.5e-3;
+	liquid_water_path_layers[(int) round(14./22.*nlayers)] = 14e-3;
 	cloud_frac = .5;
 
 	int nlevels_cloud_prop_lw_file, cloud_prop_lw_status;
@@ -424,11 +423,11 @@ int main() {
 			max_E_net = max(fabs(div_E_layers[i]), max_E_net);
 		}
 		/* Convert between hPa and Pa by multiplying delta_p with 100 */
-		double delta_t = min(C_P_LATENT/G * (100 * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
+		double delta_t = min(C_P_LATENT/G * (100. * delta_p)/max_E_net * bound_delta_temperature, bound_delta_time);
 		model_t += delta_t;
 		/* Actually adapt the temperature after having defined the time step; also see previous loop */
 		for (int i=0; i < nlayers; i++) {
-			temperature_layers[i] += div_E_layers[i] * G / (100 * delta_p * C_P_LATENT) * delta_t;
+			temperature_layers[i] += div_E_layers[i] * G / (100. * delta_p * C_P_LATENT) * delta_t;
 			temperature_sum_curr += temperature_layers[i];
 		}
 
