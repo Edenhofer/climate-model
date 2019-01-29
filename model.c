@@ -111,6 +111,7 @@ void water_vapor_feedback(int nlayers, double *relative_humidity_layers, double 
 }
 
 double albedo_feedback(double temperature_srf) {
+	/* Adapt the albedo with the temperature using a linear model */
 	double temperature_hot = 310.;
 
 	double albedo = 0.05 + 0.1 / (temperature_hot - 273.15) * (temperature_hot - temperature_srf);
@@ -411,7 +412,9 @@ int main() {
 		double total_Eup_lw_levels[nlevels], total_Edn_lw_levels[nlevels];
 		double total_E_direct_levels[nlevels], total_Eup_sw_levels[nlevels], total_Edn_sw_levels[nlevels];
 
+		/* Keep the relative humidity constant */
 		water_vapor_feedback(nlayers, relative_humidity_layers, temperature_layers, pressure_layers, h2ovmr);
+		/* Vary the albedo with the temperature as to incorporate the effects of a frozen and a deserted planet */
 		A_g_sw = albedo_feedback(temperature_layers[nlayers-1]);
 
 		/* Compute the energy fluxes using the RRTM */
