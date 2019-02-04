@@ -322,6 +322,7 @@ int main() {
 		pressure_layers[i] = (pressure_levels[i] + pressure_levels[i+1]) / 2;
 		liquid_water_path_layers[i] = 0.;
 	}
+	fflush(stdout);
 
 	int nlevels_fpda_file, fpda_status;
 	double *pressure_given=NULL, *temperature_given=NULL, *h2oppm=NULL, *o3ppm=NULL, *discard=NULL;
@@ -349,6 +350,7 @@ int main() {
 
 		printf("%5i %12g %12g %12g %12g %12g %12g %12g\n", i, temperature_layers[i], h2ovmr[i], o3vmr[i], co2vmr[i], ch4vmr[i], n2ovmr[i], o2vmr[i]);
 	}
+	fflush(stdout);
 
 	/* Compute the relative humidity profile from the standard atmosphere
 	 * in order to keep it constant later on by adapting the VMR of H20.
@@ -466,6 +468,7 @@ int main() {
 				printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[i], total_Eup_levels[i], total_Edn_lw_levels[i], total_Eup_lw_levels[i], total_E_direct_levels[i], total_Edn_sw_levels[i], total_Eup_sw_levels[i], z_layers[i], temperature_layers[i]);
 			}
 			printf("%12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.4f %12.1f %12.4f\n", total_Edn_levels[nlevels-1], total_Eup_levels[nlevels-1], total_Edn_lw_levels[nlevels-1], total_Eup_lw_levels[nlevels-1], total_E_direct_levels[nlevels-1], total_Edn_sw_levels[nlevels-1], total_Eup_sw_levels[nlevels-1], (double) NAN, (double) NAN);
+			fflush(stdout);
 
 			gnuplot_resetplot(g1);  /* Start with a new plot rather than plotting into existing one */
 			gnuplot_setstyle(g1, "linespoints");  /* Draw lines and points */
