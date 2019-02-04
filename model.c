@@ -457,7 +457,7 @@ int main() {
 		}
 
 		/* Textual and visual output */
-		if (it%5 == 0 || n_temperature == n_temperature_ter) {
+		if (it%100 == 0 || n_temperature == n_temperature_ter || it == 1) {
 			for (int i=0; i < nlayers; i++) {
 				z_layers[i] = barometric_PToZ(pressure_layers[i], temperature_layers[nlayers-1], p0);
 			}
