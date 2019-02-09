@@ -24,7 +24,7 @@ eddington_incdir = include_directories('eddington/')
 ascii_lib = shared_library('ascii', 'ascii/ascii.c', version: '1.0.0', soversion: '0', dependencies: m_dep)
 eddington_lib = shared_library('eddington', 'eddington/eddington_v2.c', version: '2.0.0', soversion: '0', dependencies: m_dep)
 gnuplot_i_lib = shared_library('gnuplot_i', 'gnuplot_i/src/gnuplot_i.c', version: '1.0.0', soversion: '0')
-rt_lib = shared_library('thermal_radiation', 'thermal_radiation.c', link_with: [eddington_lib], include_directories: [eddington_incdir], version: '1.0.0', soversion: '0', dependencies: m_dep)
+rt_lib = shared_library('radiative_transfer', 'radiative_transfer.c', link_with: [eddington_lib], include_directories: [eddington_incdir], version: '1.0.0', soversion: '0', dependencies: m_dep)
 
 executable('model', 'model.c', dependencies : [m_dep] + rrtm_deps + gsl_deps, link_with: [rt_lib, ascii_lib, gnuplot_i_lib], include_directories: [ascii_incdir, gnuplot_i_incdir, gnuplot_i_incdir, rrtm_incdir], c_args: c_flags)
 executable('opacity-analysis', 'opacity-analysis.c', dependencies : m_dep, link_with: rt_lib)

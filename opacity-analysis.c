@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "constants.h"
-#include "thermal_radiation.h"
+#include "radiative_transfer.h"
 
 #define max(a, b) \
 	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _a : _b; })

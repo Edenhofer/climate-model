@@ -6,7 +6,7 @@ Using the rapid radiative transfer model, this program simulates a one-dimension
 
 * `model.c`: Actual model to simulate the climate of the earth
 
-* `thermal_radiation.c`: Main library for computing the transport of radiation
+* `radiative_transfer.c`: Main library for computing the transport of radiation
 
 * `opacity_analysis.c`: Table producing program for visualizing an atmosphere with a window
 

@@ -6,7 +6,7 @@
 #include <gsl/gsl_interp.h>
 
 #include "constants.h"
-#include "thermal_radiation.h"
+#include "radiative_transfer.h"
 #include "ascii.h"
 #include "gnuplot_i.h"
 #include "fpda_rrtm_sw.h"

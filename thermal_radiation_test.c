@@ -2,7 +2,7 @@
 #include <math.h>
 
 #include "constants.h"
-#include "thermal_radiation.h"
+#include "radiative_transfer.h"
 
 int main() {
 	int nlayers = 10;  /* number of layers */
